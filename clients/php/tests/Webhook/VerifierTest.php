@@ -20,6 +20,19 @@ final class VerifierTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    /**
+     * Same vector as internal/signing/signing_test.go in the Go server.
+     */
+    public function testAcceptsSignatureProducedByTheServer(): void
+    {
+        $this->verifier()->verify(self::BODY, [
+            'webhook-id' => 'evt_1',
+            'webhook-timestamp' => (string) self::NOW,
+            'webhook-signature' => 'v1,DpPc9pmsF6HhjneOVQvZ7vDaVsOWIJZaIjvPPCJpZs8=',
+        ]);
+        $this->addToAssertionCount(1);
+    }
+
     public function testHeaderNamesAreCaseInsensitiveAndMayBeLists(): void
     {
         $headers = [];
