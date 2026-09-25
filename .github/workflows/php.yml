@@ -1,0 +1,27 @@
+name: php
+
+on:
+  push:
+    branches: [main]
+    paths: ["clients/php/**", ".github/workflows/php.yml"]
+  pull_request:
+    paths: ["clients/php/**", ".github/workflows/php.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
+    defaults:
+      run:
+        working-directory: clients/php
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - run: composer install --no-progress
+      - run: vendor/bin/phpunit
+      - run: vendor/bin/phpstan analyse --no-progress

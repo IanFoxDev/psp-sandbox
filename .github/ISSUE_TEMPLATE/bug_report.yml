@@ -1,0 +1,23 @@
+name: Bug report
+description: The sandbox does not behave as documented
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Image tag or commit
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Requests you sent (curl is fine), scenario, relevant environment variables.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true

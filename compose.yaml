@@ -1,0 +1,11 @@
+# Local run of the sandbox. `make run` or `docker compose up --build`.
+services:
+  psp:
+    build: .
+    ports: ["8090:8090"]
+    environment:
+      PSP_CALLBACK_URL: http://host.docker.internal:8000/api/psp/callback
+      PSP_WEBHOOK_SECRET: whsec_dGVzdC1zZWNyZXQ=
+      PSP_SCENARIOS_FILE: /etc/psp-sandbox/scenarios.yaml
+    volumes:
+      - ./scenarios/example.yaml:/etc/psp-sandbox/scenarios.yaml:ro

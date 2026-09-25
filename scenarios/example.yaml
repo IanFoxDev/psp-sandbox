@@ -1,0 +1,21 @@
+# Rules for choosing a scenario without the X-Sandbox-Scenario header.
+# Checked top to bottom, first match wins. See docs/scenarios.md.
+rules:
+  - when: { amount: 1313 }
+    scenario: declined
+    params: { reason: insufficient_funds }
+
+  - when: { amount: 1314 }
+    scenario: declined
+    params: { reason: fraud_suspected }
+
+  - when: { reference_prefix: "dup-" }
+    scenario: duplicate_callback
+    params: { times: 3, parallel: true }
+
+  - when: { reference_prefix: "slow-" }
+    scenario: timeout_then_success
+    params: { delay: 35s }
+
+  - when: { reference_prefix: "lost-" }
+    scenario: lost_callback

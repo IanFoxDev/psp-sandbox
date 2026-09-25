@@ -1,0 +1,65 @@
+# Scenarios
+
+A scenario decides how the sandbox behaves for one payment: what the create call returns,
+which events happen, and how callbacks are delivered.
+
+## Choosing a scenario
+
+Order of precedence:
+
+1. `X-Sandbox-Scenario` header on the create request.
+2. First matching rule in `PSP_SCENARIOS_FILE`.
+3. `PSP_DEFAULT_SCENARIO` (default `happy_path`).
+
+Header format: `name; key=value; key=value`. Durations use Go syntax (`500ms`, `35s`, `2m`).
+
+The chosen scenario is stored on the payment and applies to its refunds and later events.
+
+## Rules file
+
+```yaml
+rules:
+  - when: { amount: 1313 }                 # exact amount in minor units
+    scenario: declined
+    params: { reason: insufficient_funds }
+  - when: { reference_prefix: "dup-" }
+    scenario: duplicate_callback
+    params: { times: 3, parallel: true }
+  - when: { currency: "USDT" }
+    scenario: delayed_callback
+    params: { delay: 30s }
+```
+
+`when` keys: `amount`, `currency`, `reference_prefix`, `metadata` (map, all keys must
+match). All keys in one `when` must match. Rules are checked top to bottom.
+
+## Catalog
+
+Status in the first column: **v0.1** means planned for the first release.
+
+| | Scenario | Parameters | Behavior |
+|---|---|---|---|
+| v0.1 | `happy_path` | none | `pending -> captured` (or `authorized` with manual capture), one callback per event. |
+| v0.1 | `declined` | `reason` = `insufficient_funds` \| `do_not_honor` \| `expired_card` \| `fraud_suspected` | `pending -> failed`, `payment.failed` with the reason. |
+| v0.1 | `duplicate_callback` | `times` = 2, `parallel` = false, `interval` = 0s | Every event is delivered `times` times. With `parallel=true` all copies are sent at once to hit race conditions. |
+| v0.1 | `callback_before_response` | `lead` = 50ms | The status changes and the callback is sent, then the create response is returned `lead` later. The response still says `pending`. |
+| v0.1 | `timeout_then_success` | `delay` = 35s, `mode` = `hold` \| `reset` | `hold`: the create response is delayed by `delay`. `reset`: the connection is closed without a response. The payment is created and captured either way, callback included. A retry with the same `Idempotency-Key` returns the payment. |
+| v0.1 | `lost_callback` | none | No callbacks for this payment. Status is only visible through `GET`. |
+| v0.1 | `delayed_callback` | `delay` = 10s | Callbacks are held for `delay` after the status change. |
+| v0.2 | `out_of_order` | none | Events for the payment are buffered and delivered in reverse order (e.g. `refund.succeeded` before `payment.captured`). |
+| v0.2 | `ack_ignored` | `times` = 2 | The sandbox treats your `2xx` as a failure and retries `times` more times. |
+| v0.2 | `invalid_signature` | `mode` = `wrong_secret` \| `stale_timestamp` \| `missing` | The callback signature is wrong in the chosen way. Your handler must reject it. |
+| v0.2 | `server_error_then_success` | `failures` = 1, `status` = 503 | The first `failures` create calls with the same `Idempotency-Key` return `status` without creating anything. The next one succeeds. |
+| v0.2 | `amount_mismatch` | `delta` = -1 | Captured amount is `amount + delta`. The callback carries the captured amount. |
+| v0.2 | `chargeback_after` | `delay` = 24h, `outcome` = `lost` \| `won` | After capture, `chargeback.opened` fires after `delay`, then `chargeback.closed` with the outcome. Use with `PSP_CLOCK=manual`. |
+| later | `partial_capture_only` | `max` | Capture is limited to `max` regardless of the requested amount. |
+| later | `status_regression` | none | A `failed` callback arrives after `captured` for the same payment. |
+
+Scenarios combine only through separate payments. One payment has one scenario.
+
+## Adding a scenario
+
+A scenario is a Go type in `internal/scenario` that implements the `Scenario` interface
+and is registered in the catalog. See [architecture.md](architecture.md) and
+[CONTRIBUTING.md](../CONTRIBUTING.md). Each new scenario needs a test that shows the
+behavior from the point of view of an HTTP client and a callback receiver.

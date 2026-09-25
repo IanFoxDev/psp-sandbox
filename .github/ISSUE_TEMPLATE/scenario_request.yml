@@ -1,0 +1,27 @@
+name: Scenario request
+description: A provider behavior that broke your application and should be reproducible
+labels: ["scenario"]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What the provider did
+      description: Sequence of responses and callbacks, with timings if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: What broke
+      description: Double credit, stuck order, wrong status, lost refund...
+    validations:
+      required: true
+  - type: textarea
+    id: test
+    attributes:
+      label: How a test would check it
+  - type: input
+    id: provider
+    attributes:
+      label: Provider type (optional)
+      description: Card acquirer, e-wallet, crypto processor, bank transfer. No need to name the company.
