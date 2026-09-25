@@ -1,5 +1,6 @@
 # Publishes clients/php to the read-only repository that Packagist tracks.
-# Needs a secret SPLIT_TOKEN with write access to ghuser/psp-sandbox-php.
+# Needs a secret SPLIT_TOKEN with write access to ianfoxdev/psp-sandbox-php.
+# Without the secret the job does nothing, so forks and early pushes stay green.
 name: split-php-client
 
 on:
@@ -10,16 +11,22 @@ on:
 jobs:
   split:
     runs-on: ubuntu-latest
+    env:
+      SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - if: env.SPLIT_TOKEN == ''
+        run: echo "SPLIT_TOKEN is not set, skipping the split."
+      - if: env.SPLIT_TOKEN != ''
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: danharrin/monorepo-split-github-action@v2.3.0
+      - if: env.SPLIT_TOKEN != ''
+        uses: danharrin/monorepo-split-github-action@v2.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
         with:
           package_directory: clients/php
-          repository_organization: ghuser
+          repository_organization: ianfoxdev
           repository_name: psp-sandbox-php
           branch: master
           tag: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}

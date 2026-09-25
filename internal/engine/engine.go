@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/callback"
-	"github.com/ghuser/psp-sandbox/internal/clock"
-	"github.com/ghuser/psp-sandbox/internal/ids"
-	"github.com/ghuser/psp-sandbox/internal/payment"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
-	"github.com/ghuser/psp-sandbox/internal/store"
+	"github.com/ianfoxdev/psp-sandbox/internal/callback"
+	"github.com/ianfoxdev/psp-sandbox/internal/clock"
+	"github.com/ianfoxdev/psp-sandbox/internal/ids"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/store"
 )
 
 // ErrInvalidScenario means the requested scenario or its parameters are wrong.

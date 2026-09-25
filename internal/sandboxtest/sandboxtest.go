@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/app"
-	"github.com/ghuser/psp-sandbox/internal/config"
-	"github.com/ghuser/psp-sandbox/internal/signing"
+	"github.com/ianfoxdev/psp-sandbox/internal/app"
+	"github.com/ianfoxdev/psp-sandbox/internal/config"
+	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 )
 
 // Secret signs callbacks in tests. It matches the shared test vector.

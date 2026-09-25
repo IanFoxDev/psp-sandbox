@@ -20,7 +20,7 @@ callbacks to your app, and lets each test pick a failure scenario by name.
 # compose.yaml in your project
 services:
   psp:
-    image: ghcr.io/ghuser/psp-sandbox:0.1
+    image: ghcr.io/ianfoxdev/psp-sandbox:0.1
     ports: ["8090:8090"]
     environment:
       PSP_CALLBACK_URL: http://app/api/psp/callback
@@ -76,7 +76,7 @@ rules:
 ## PHP client
 
 ```bash
-composer require --dev ghuser/psp-sandbox-php
+composer require --dev ianfoxdev/psp-sandbox-php
 ```
 
 ```php

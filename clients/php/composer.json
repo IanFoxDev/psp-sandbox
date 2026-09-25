@@ -1,10 +1,10 @@
 {
-    "name": "ghuser/psp-sandbox-php",
+    "name": "ianfoxdev/psp-sandbox-php",
     "description": "PHP client for psp-sandbox: pick failure scenarios from tests and verify signed callbacks.",
     "type": "library",
     "license": "MIT",
     "keywords": ["payments", "psp", "testing", "webhooks", "sandbox", "mock"],
-    "homepage": "https://github.com/ghuser/psp-sandbox",
+    "homepage": "https://github.com/ianfoxdev/psp-sandbox",
     "authors": [
         { "name": "Anatoly Pankratyev", "email": "ianfoxdeveloper@gmail.com" }
     ],

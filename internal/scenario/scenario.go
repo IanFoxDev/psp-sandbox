@@ -9,8 +9,8 @@ package scenario
 import (
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/callback"
-	"github.com/ghuser/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/callback"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 // Scenario is the behavior of the sandbox for one payment.

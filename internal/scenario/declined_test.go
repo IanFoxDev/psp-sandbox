@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ghuser/psp-sandbox/internal/sandboxtest"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/sandboxtest"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 func TestDeclined(t *testing.T) {

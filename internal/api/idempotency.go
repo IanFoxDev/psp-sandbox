@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/ghuser/psp-sandbox/internal/scenario"
-	"github.com/ghuser/psp-sandbox/internal/store"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/store"
 )
 
 // HeaderIdempotencyKey is the request header for safe retries.

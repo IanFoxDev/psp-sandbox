@@ -1,8 +1,8 @@
 package scenario
 
 import (
-	"github.com/ghuser/psp-sandbox/internal/callback"
-	"github.com/ghuser/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/callback"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 func init() {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 var now = time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)

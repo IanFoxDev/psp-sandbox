@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/engine"
-	"github.com/ghuser/psp-sandbox/internal/payment"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/engine"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 var currencyCode = regexp.MustCompile(`^[A-Z][A-Z0-9]{2,4}$`)

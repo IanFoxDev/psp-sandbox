@@ -11,7 +11,7 @@ Packagist requires `composer.json` at the root of the repository it reads.
 ## Decision
 
 Develop the client in `clients/php/`. On every tag, a workflow splits that directory into
-the read-only repository `ghuser/psp-sandbox-php`, which is what Packagist tracks.
+the read-only repository `ianfoxdev/psp-sandbox-php`, which is what Packagist tracks.
 Symfony and Laravel publish their components the same way.
 
 The client version follows the server version: client `0.3.x` talks to server `0.3.x`.

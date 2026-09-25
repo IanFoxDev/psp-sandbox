@@ -14,9 +14,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ghuser/psp-sandbox/internal/engine"
-	"github.com/ghuser/psp-sandbox/internal/payment"
-	"github.com/ghuser/psp-sandbox/internal/store"
+	"github.com/ianfoxdev/psp-sandbox/internal/engine"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/store"
 )
 
 // maxBody is the largest request body the API reads.

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 func TestParseHeader(t *testing.T) {

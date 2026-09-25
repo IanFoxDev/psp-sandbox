@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/clock"
-	"github.com/ghuser/psp-sandbox/internal/ids"
-	"github.com/ghuser/psp-sandbox/internal/payment"
-	"github.com/ghuser/psp-sandbox/internal/signing"
+	"github.com/ianfoxdev/psp-sandbox/internal/clock"
+	"github.com/ianfoxdev/psp-sandbox/internal/ids"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 )
 
 const secret = "whsec_dGVzdC1zZWNyZXQ="

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/sandboxtest"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/sandboxtest"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 // The application gets the callback for a payment it has not stored yet,

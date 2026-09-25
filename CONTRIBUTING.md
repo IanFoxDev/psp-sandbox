@@ -36,5 +36,5 @@ describe:
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `docs:`, `ci:`).
 - CI must be green: tests, lint, PHP client tests.
-- Changes to the PHP client go to this repository. `ghuser/psp-sandbox-php` is a
+- Changes to the PHP client go to this repository. `ianfoxdev/psp-sandbox-php` is a
   read-only mirror.

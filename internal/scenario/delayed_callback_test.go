@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/clock"
-	"github.com/ghuser/psp-sandbox/internal/config"
-	"github.com/ghuser/psp-sandbox/internal/sandboxtest"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/clock"
+	"github.com/ianfoxdev/psp-sandbox/internal/config"
+	"github.com/ianfoxdev/psp-sandbox/internal/sandboxtest"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 // The payment is captured, but the application hears about it only later.

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/ghuser/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 // ErrNotFound means there is no object with this id.

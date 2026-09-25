@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/clock"
-	"github.com/ghuser/psp-sandbox/internal/ids"
-	"github.com/ghuser/psp-sandbox/internal/payment"
-	"github.com/ghuser/psp-sandbox/internal/signing"
+	"github.com/ianfoxdev/psp-sandbox/internal/clock"
+	"github.com/ianfoxdev/psp-sandbox/internal/ids"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 )
 
 // ErrNotFound means there is no delivery with this id.

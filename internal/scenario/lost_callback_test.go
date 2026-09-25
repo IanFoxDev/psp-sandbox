@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/callback"
-	"github.com/ghuser/psp-sandbox/internal/sandboxtest"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/callback"
+	"github.com/ianfoxdev/psp-sandbox/internal/sandboxtest"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 // The application must poll GET to learn the outcome.

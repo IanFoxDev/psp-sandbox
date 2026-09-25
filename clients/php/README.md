@@ -1,13 +1,13 @@
 # psp-sandbox-php
 
-PHP client for [psp-sandbox](https://github.com/ghuser/psp-sandbox), a fake payment
+PHP client for [psp-sandbox](https://github.com/ianfoxdev/psp-sandbox), a fake payment
 provider that fails on demand.
 
 > This repository is a read-only mirror of `clients/php` in the main repository.
 > Please open issues and pull requests there.
 
 ```bash
-composer require --dev ghuser/psp-sandbox-php
+composer require --dev ianfoxdev/psp-sandbox-php
 ```
 
 ## Verify callbacks

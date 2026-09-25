@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/app"
-	"github.com/ghuser/psp-sandbox/internal/config"
+	"github.com/ianfoxdev/psp-sandbox/internal/app"
+	"github.com/ianfoxdev/psp-sandbox/internal/config"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".

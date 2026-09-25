@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghuser/psp-sandbox/internal/api"
-	"github.com/ghuser/psp-sandbox/internal/clock"
-	"github.com/ghuser/psp-sandbox/internal/config"
-	"github.com/ghuser/psp-sandbox/internal/sandboxtest"
-	"github.com/ghuser/psp-sandbox/internal/scenario"
+	"github.com/ianfoxdev/psp-sandbox/internal/api"
+	"github.com/ianfoxdev/psp-sandbox/internal/clock"
+	"github.com/ianfoxdev/psp-sandbox/internal/config"
+	"github.com/ianfoxdev/psp-sandbox/internal/sandboxtest"
+	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
 // Create a payment, see it change status, receive a signed callback.
