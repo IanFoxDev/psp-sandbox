@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
       - if: env.SPLIT_TOKEN != ''
-        uses: danharrin/monorepo-split-github-action@v2.3.0
+        uses: danharrin/monorepo-split-github-action@v2.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
         with:
