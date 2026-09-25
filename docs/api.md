@@ -119,24 +119,91 @@ pending -> authorized -> captured -> partially_refunded -> refunded
 | 400 | `invalid_request` |
 | 401 | `unauthorized` |
 | 404 | `not_found` |
-| 409 | `idempotency_conflict`, `invalid_state` |
+| 409 | `idempotency_conflict`, `invalid_state`, `clock_not_manual` (control API) |
 | 422 | `amount_exceeds_captured` |
 | 5xx | returned only by scenarios that ask for it |
 
 ## Control API
 
-Not authenticated. Do not expose the sandbox outside a test network.
+Not authenticated. Do not expose the sandbox outside a test network. Errors have the same
+shape as in the provider API. Lists come as `{"data": [...]}`.
 
-| Method and path | Purpose |
-|---|---|
-| `GET /_sandbox/scenarios` | Catalog: names, parameters, defaults. |
-| `GET /_sandbox/payments/{id}/deliveries` | Every callback attempt: event, URL, status code, latency, body sent. |
-| `POST /_sandbox/deliveries/{id}/replay` | Send a delivered event again. |
-| `POST /_sandbox/payments/{id}/events` | Force an event, e.g. `{"type": "chargeback.opened"}`. |
-| `POST /_sandbox/clock/advance` | `{"seconds": 3600}`. Moves the sandbox clock; due delayed events fire. Only with `PSP_CLOCK=manual`. |
-| `POST /_sandbox/reset` | Drop all payments, deliveries and idempotency keys. |
-| `GET /_sandbox/` | Web UI. |
-| `GET /healthz` | Liveness, `200 ok`. |
+| Method and path | Answer | Purpose |
+|---|---|---|
+| `GET /_sandbox/scenarios` | `200` | Catalog: name, description, parameters with type, default and allowed values. |
+| `GET /_sandbox/payments/{id}/deliveries` | `200` | Every callback delivery and its attempts, see below. |
+| `GET /_sandbox/payments/{id}/events` | `200` | Events of the payment in the order they happened. |
+| `POST /_sandbox/payments/{id}/events` | `201` | Force an event, see below. |
+| `POST /_sandbox/deliveries/{id}/replay` | `202` | Send the event of a delivery again, as a new delivery. |
+| `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
+| `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`. Moves a manual clock, see below. |
+| `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. |
+| `GET /_sandbox/` | | Web UI (planned). |
+| `GET /healthz` | `200` | Liveness, `ok`. |
+
+### Deliveries
+
+```json
+{
+  "id": "dlv_7QK2M9XH4B1C",
+  "event_id": "evt_01J9Z3M4T7A1",
+  "event_type": "payment.captured",
+  "payment_id": "pay_01J9Z3K8Q2W5",
+  "url": "http://app/api/psp/callback",
+  "copy": 1,
+  "replay_of": "",
+  "status": "succeeded",
+  "created_at": "2026-09-25T10:00:00.2Z",
+  "body": { "id": "evt_01J9Z3M4T7A1", "type": "payment.captured", "...": "..." },
+  "attempts": [
+    {
+      "n": 1,
+      "at": "2026-09-25T10:00:00.2Z",
+      "request_headers": { "Webhook-Id": "evt_01J9Z3M4T7A1", "...": "..." },
+      "status_code": 200,
+      "response_body": "ok",
+      "latency_ms": 4
+    }
+  ]
+}
+```
+
+`status` is `pending`, `succeeded`, `failed` (all attempts used) or `dropped` (the
+scenario never sends it, as in `lost_callback`). `copy` counts copies of one event in
+`duplicate_callback`. `replay_of` is set on deliveries made by replay.
+
+### Forced events
+
+`POST /_sandbox/payments/{id}/events`:
+
+```json
+{ "type": "chargeback.opened" }
+```
+
+The payment moves to the status the event stands for, the event is recorded and sent
+through the payment's scenario, as if the provider did it. The usual status rules apply,
+so a chargeback on a pending payment returns `409 invalid_state`.
+
+| `type` | New status | Extra fields |
+|---|---|---|
+| `payment.authorized` | `authorized` | |
+| `payment.captured` | `captured` | |
+| `payment.failed` | `failed` | `reason`, default `do_not_honor` |
+| `payment.canceled` | `canceled` | |
+| `chargeback.opened` | `disputed` | |
+| `chargeback.closed` | `chargeback_lost` or `chargeback_won` | `outcome`: `lost` (default) or `won` |
+
+The answer is `{"payment": {...}, "event": {...}}`. Refund events cannot be forced.
+
+### Clock
+
+With `PSP_CLOCK=manual` the sandbox clock starts at the wall-clock time of startup and
+moves only on `POST /_sandbox/clock/advance`. Status changes, delayed callbacks and
+retries that fall due are applied before the call answers, so a `GET` right after it
+sees the new status. Callbacks themselves are sent in the background.
+
+Without a manual clock the call returns `409 clock_not_manual`. Reset does not move the
+clock back.
 
 ## Configuration
 

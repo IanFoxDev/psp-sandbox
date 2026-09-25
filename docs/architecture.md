@@ -20,6 +20,7 @@ internal/app/           wiring from Config to an http.Handler, shared by main an
 internal/sandboxtest/   test helpers: a full sandbox plus a signed-callback receiver
 internal/api/           provider API handlers (/v1/*)
 internal/control/       control API handlers (/_sandbox/*)
+internal/httpx/         JSON and error helpers shared by both APIs
 internal/ui/            embedded web UI (html/template + a little vanilla JS)
 scenarios/              example rules files
 clients/php/            PHP client, published as a separate package

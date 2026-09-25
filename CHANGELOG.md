@@ -18,5 +18,8 @@ such changes are marked **BREAKING**.
   time per payment in event order, and a log of every attempt.
 - Manual clock (`PSP_CLOCK=manual`) that drives status changes, delayed callbacks and
   retries.
+- Control API under `/_sandbox`: scenario catalog, delivery log with every attempt,
+  event history, replay of a delivery, forced payment and chargeback events, clock
+  status and advance, reset.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
