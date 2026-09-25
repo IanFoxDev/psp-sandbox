@@ -18,4 +18,5 @@ such changes are marked **BREAKING**.
   time per payment in event order, and a log of every attempt.
 - Manual clock (`PSP_CLOCK=manual`) that drives status changes, delayed callbacks and
   retries.
-- Scenario `happy_path`.
+- Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
+  `timeout_then_success`, `lost_callback`, `delayed_callback`.

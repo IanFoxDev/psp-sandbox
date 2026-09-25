@@ -40,8 +40,8 @@ Status in the first column: **v0.1** means planned for the first release.
 | | Scenario | Parameters | Behavior |
 |---|---|---|---|
 | v0.1 | `happy_path` | none | `pending -> captured` (or `authorized` with manual capture), one callback per event. |
-| v0.1 | `declined` | `reason` = `insufficient_funds` \| `do_not_honor` \| `expired_card` \| `fraud_suspected` | `pending -> failed`, `payment.failed` with the reason. |
-| v0.1 | `duplicate_callback` | `times` = 2, `parallel` = false, `interval` = 0s | Every event is delivered `times` times. With `parallel=true` all copies are sent at once to hit race conditions. |
+| v0.1 | `declined` | `reason` = `insufficient_funds` \| `do_not_honor` \| `expired_card` \| `fraud_suspected` | `pending -> failed`, `payment.failed` with the reason in `failure_reason`. |
+| v0.1 | `duplicate_callback` | `times` = 2 (up to 20), `parallel` = false, `interval` = 0s | Every event is delivered `times` times. With `parallel=true` all copies are sent at once to hit race conditions. |
 | v0.1 | `callback_before_response` | `lead` = 50ms | The status changes and the callback is sent, then the create response is returned `lead` later. The response still says `pending`. |
 | v0.1 | `timeout_then_success` | `delay` = 35s, `mode` = `hold` \| `reset` | `hold`: the create response is delayed by `delay`. `reset`: the connection is closed without a response. The payment is created and captured either way, callback included. A retry with the same `Idempotency-Key` returns the payment. |
 | v0.1 | `lost_callback` | none | No callbacks for this payment. Status is only visible through `GET`. |
@@ -54,6 +54,10 @@ Status in the first column: **v0.1** means planned for the first release.
 | v0.2 | `chargeback_after` | `delay` = 24h, `outcome` = `lost` \| `won` | After capture, `chargeback.opened` fires after `delay`, then `chargeback.closed` with the outcome. Use with `PSP_CLOCK=manual`. |
 | later | `partial_capture_only` | `max` | Capture is limited to `max` regardless of the requested amount. |
 | later | `status_regression` | none | A `failed` callback arrives after `captured` for the same payment. |
+
+The first value listed for a parameter is its default. Unknown scenario names, unknown
+parameters and invalid values are rejected with `400 invalid_request`, so a typo in a
+test does not silently fall back to `happy_path`.
 
 Scenarios combine only through separate payments. One payment has one scenario.
 
