@@ -52,7 +52,8 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 		WriteError(w, http.StatusConflict, "invalid_state", err.Error())
 	case errors.Is(err, payment.ErrAmountExceedsCaptured):
 		WriteError(w, http.StatusUnprocessableEntity, "amount_exceeds_captured", err.Error())
-	case errors.Is(err, payment.ErrInvalidAmount), errors.Is(err, engine.ErrInvalidScenario):
+	case errors.Is(err, payment.ErrInvalidAmount), errors.Is(err, engine.ErrInvalidScenario),
+		errors.Is(err, engine.ErrUnsupportedEvent):
 		WriteError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
 		WriteError(w, http.StatusInternalServerError, "internal_error", err.Error())

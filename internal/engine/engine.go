@@ -182,35 +182,46 @@ func (e *Engine) applyStep(gen uint64, paymentID string, step scenario.Step) <-c
 	if gen != e.gen {
 		return nil
 	}
-	now := e.now()
-	p, err := e.store.UpdatePayment(paymentID, func(p *payment.Payment) error {
-		switch step.Status {
-		case payment.Failed:
-			return p.Fail(step.Reason, now)
-		case payment.Captured:
-			return p.CaptureAmount(0, now)
-		default:
-			return p.Become(step.Status, now)
-		}
-	})
+	_, _, sent, err := e.transitionLocked(paymentID, step.Status, step.Reason)
 	if err != nil {
 		e.log.Info("scheduled status change skipped", "payment", paymentID, "to", step.Status, "err", err)
 		return nil
 	}
-	return e.emitPaymentLocked(p)
+	return sent
+}
+
+// transitionLocked moves a payment to status to and sends the matching event.
+// e.mu must be held.
+func (e *Engine) transitionLocked(paymentID string, to payment.Status, reason string) (payment.Payment, payment.Event, <-chan struct{}, error) {
+	now := e.now()
+	p, err := e.store.UpdatePayment(paymentID, func(p *payment.Payment) error {
+		switch to {
+		case payment.Failed:
+			return p.Fail(reason, now)
+		case payment.Captured:
+			return p.CaptureAmount(0, now)
+		default:
+			return p.Become(to, now)
+		}
+	})
+	if err != nil {
+		return p, payment.Event{}, nil, err
+	}
+	ev, sent := e.emitPaymentLocked(p)
+	return p, ev, sent, nil
 }
 
 // emitPaymentLocked sends the event for the payment's current status, if it has one.
-func (e *Engine) emitPaymentLocked(p payment.Payment) <-chan struct{} {
+func (e *Engine) emitPaymentLocked(p payment.Payment) (payment.Event, <-chan struct{}) {
 	typ, ok := payment.EventTypeFor(p.Status)
 	if !ok {
-		return nil
+		return payment.Event{}, nil
 	}
 	return e.emitLocked(p, typ, p)
 }
 
 // emitLocked records an event and hands it to the dispatcher. e.mu must be held.
-func (e *Engine) emitLocked(p payment.Payment, typ payment.EventType, data any) <-chan struct{} {
+func (e *Engine) emitLocked(p payment.Payment, typ payment.EventType, data any) (payment.Event, <-chan struct{}) {
 	ev := payment.Event{
 		ID:        e.ids.Next("evt"),
 		Type:      typ,
@@ -221,9 +232,9 @@ func (e *Engine) emitLocked(p payment.Payment, typ payment.EventType, data any) 
 	e.store.AddEvent(ev)
 	if p.CallbackURL == "" {
 		e.log.Warn("no callback URL, event not delivered", "payment", p.ID, "event", ev.ID, "type", typ)
-		return nil
+		return ev, nil
 	}
-	return e.dispatcher.Send(ev, p.CallbackURL, e.scenarioLocked(p.ID).Deliver(ev))
+	return ev, e.dispatcher.Send(ev, p.CallbackURL, e.scenarioLocked(p.ID).Deliver(ev))
 }
 
 func (e *Engine) scenarioLocked(paymentID string) scenario.Scenario {
