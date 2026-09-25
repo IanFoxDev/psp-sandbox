@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ianfoxdev/psp-sandbox/internal/httpx"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 	"github.com/ianfoxdev/psp-sandbox/internal/store"
 )
@@ -33,9 +34,9 @@ func (a *API) idempotent(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBody))
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, httpx.MaxBody))
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", "cannot read body: "+err.Error())
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "cannot read body: "+err.Error())
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
@@ -45,10 +46,10 @@ func (a *API) idempotent(next http.Handler) http.Handler {
 		stored, err := a.store.BeginIdempotent(scope, fp)
 		switch {
 		case errors.Is(err, store.ErrIdempotencyConflict):
-			writeError(w, http.StatusConflict, "idempotency_conflict", "this Idempotency-Key was used with a different request")
+			httpx.WriteError(w, http.StatusConflict, "idempotency_conflict", "this Idempotency-Key was used with a different request")
 			return
 		case errors.Is(err, store.ErrIdempotencyInProgress):
-			writeError(w, http.StatusConflict, "idempotency_conflict", "a request with this Idempotency-Key is still in progress")
+			httpx.WriteError(w, http.StatusConflict, "idempotency_conflict", "a request with this Idempotency-Key is still in progress")
 			return
 		case stored != nil:
 			w.Header().Set("Content-Type", "application/json")

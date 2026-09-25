@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
+	"github.com/ianfoxdev/psp-sandbox/internal/httpx"
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
@@ -26,18 +27,18 @@ type createRequest struct {
 
 func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
-	if !readJSON(w, r, &req, false) {
+	if !httpx.ReadJSON(w, r, &req, false) {
 		return
 	}
 	in, msg := validateCreate(req)
 	if msg != "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", msg)
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", msg)
 		return
 	}
 	if h := r.Header.Get(scenario.Header); h != "" {
 		spec, err := scenario.ParseHeader(h)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_request", err.Error())
 			return
 		}
 		in.Scenario = &spec
@@ -45,7 +46,7 @@ func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 
 	created, err := a.engine.Create(in)
 	if err != nil {
-		writeDomainError(w, err)
+		httpx.WriteDomainError(w, err)
 		return
 	}
 	body, _ := json.Marshal(created.Payment)
@@ -134,42 +135,42 @@ func validateCreate(req createRequest) (engine.CreateRequest, string) {
 func (a *API) getPayment(w http.ResponseWriter, r *http.Request) {
 	p, err := a.engine.Payment(r.PathValue("id"))
 	if err != nil {
-		writeDomainError(w, err)
+		httpx.WriteDomainError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	httpx.WriteJSON(w, http.StatusOK, p)
 }
 
 func (a *API) listPayments(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": a.engine.Payments(r.URL.Query().Get("reference"))})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"data": a.engine.Payments(r.URL.Query().Get("reference"))})
 }
 
 func (a *API) capture(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Amount int64 `json:"amount"`
 	}
-	if !readJSON(w, r, &req, true) {
+	if !httpx.ReadJSON(w, r, &req, true) {
 		return
 	}
 	if req.Amount < 0 {
-		writeError(w, http.StatusBadRequest, "invalid_request", "amount must be positive")
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "amount must be positive")
 		return
 	}
 	p, err := a.engine.Capture(r.PathValue("id"), req.Amount)
 	if err != nil {
-		writeDomainError(w, err)
+		httpx.WriteDomainError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	httpx.WriteJSON(w, http.StatusOK, p)
 }
 
 func (a *API) cancel(w http.ResponseWriter, r *http.Request) {
 	p, err := a.engine.Cancel(r.PathValue("id"))
 	if err != nil {
-		writeDomainError(w, err)
+		httpx.WriteDomainError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	httpx.WriteJSON(w, http.StatusOK, p)
 }
 
 func (a *API) refund(w http.ResponseWriter, r *http.Request) {
@@ -177,12 +178,12 @@ func (a *API) refund(w http.ResponseWriter, r *http.Request) {
 		Amount    int64  `json:"amount"`
 		Reference string `json:"reference"`
 	}
-	if !readJSON(w, r, &req, false) {
+	if !httpx.ReadJSON(w, r, &req, false) {
 		return
 	}
 	ref, err := a.engine.Refund(r.PathValue("id"), req.Amount, req.Reference)
 	if err != nil {
-		writeDomainError(w, err)
+		httpx.WriteDomainError(w, err)
 		return
 	}
 	body, _ := json.Marshal(ref)
