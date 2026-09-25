@@ -34,12 +34,14 @@ const (
 
 // Delivery is one copy of one event sent to one URL, with every attempt.
 type Delivery struct {
-	ID        string          `json:"id"`
-	EventID   string          `json:"event_id"`
-	EventType string          `json:"event_type"`
-	PaymentID string          `json:"payment_id"`
-	URL       string          `json:"url"`
-	Copy      int             `json:"copy"`
+	ID        string `json:"id"`
+	EventID   string `json:"event_id"`
+	EventType string `json:"event_type"`
+	PaymentID string `json:"payment_id"`
+	URL       string `json:"url"`
+	Copy      int    `json:"copy"`
+	// ReplayOf is the id of the delivery this one repeats, set by Replay.
+	ReplayOf  string          `json:"replay_of,omitempty"`
 	Status    Status          `json:"status"`
 	CreatedAt time.Time       `json:"created_at"`
 	Body      json.RawMessage `json:"body"`

@@ -2,6 +2,7 @@ package callback
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -281,6 +282,32 @@ func TestDrop(t *testing.T) {
 	dels := d.Deliveries("pay_1")
 	if len(dels) != 1 || dels[0].Status != StatusDropped {
 		t.Fatalf("deliveries = %+v", dels)
+	}
+}
+
+func TestReplay(t *testing.T) {
+	rc := newReceiver(t, nil)
+	d := newDispatcher(t, clock.Real{})
+
+	d.Send(event("evt_1", "pay_1"), rc.URL, Plan{})
+	orig := waitStatus(t, d, "pay_1", StatusSucceeded)[0]
+
+	replay, err := d.Replay(orig.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.ID == orig.ID || replay.ReplayOf != orig.ID || replay.EventID != "evt_1" {
+		t.Fatalf("replay = %+v", replay)
+	}
+	got := rc.wait(t, 2)
+	if got[1].eventID != "evt_1" || string(got[1].body) != string(got[0].body) {
+		t.Fatalf("replayed callback differs: %s", got[1].body)
+	}
+	if dels := waitStatus(t, d, "pay_1", StatusSucceeded); len(dels) != 2 {
+		t.Fatalf("%d deliveries, want 2", len(dels))
+	}
+	if _, err := d.Replay("dlv_missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown delivery: err = %v", err)
 	}
 }
 

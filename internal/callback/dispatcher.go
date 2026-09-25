@@ -166,15 +166,53 @@ func (d *Dispatcher) Send(e payment.Event, url string, plan Plan) <-chan struct{
 		return j.first
 	}
 
-	q, running := d.queues[e.PaymentID]
+	d.enqueueLocked(e.PaymentID, j)
+	return j.first
+}
+
+// Replay sends the event of an earlier delivery again, as a new delivery with
+// its own attempts. The body and event id are the same; the signature is new.
+// It goes through the payment's queue like any other event.
+func (d *Dispatcher) Replay(id string) (Delivery, error) {
+	now := d.opts.Clock.Now()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	orig, ok := d.deliveries[id]
+	if !ok {
+		return Delivery{}, ErrNotFound
+	}
+	del := &Delivery{
+		ID:        d.opts.IDs.Next("dlv"),
+		EventID:   orig.EventID,
+		EventType: orig.EventType,
+		PaymentID: orig.PaymentID,
+		URL:       orig.URL,
+		Copy:      1,
+		ReplayOf:  orig.ID,
+		Status:    StatusPending,
+		CreatedAt: now,
+		Body:      orig.Body,
+		Attempts:  []Attempt{},
+	}
+	d.deliveries[del.ID] = del
+	d.byPayment[del.PaymentID] = append(d.byPayment[del.PaymentID], del.ID)
+	d.enqueueLocked(del.PaymentID, &job{gen: d.gen, deliveries: []*Delivery{del}, readyAt: now, first: make(chan struct{})})
+	return del.clone(), nil
+}
+
+// enqueueLocked adds a job to the payment's queue and starts a worker if the
+// queue was idle. d.mu must be held.
+func (d *Dispatcher) enqueueLocked(paymentID string, j *job) {
+	q, running := d.queues[paymentID]
 	if !running {
 		q = &queue{}
-		d.queues[e.PaymentID] = q
+		d.queues[paymentID] = q
 		d.gen.wg.Add(1)
-		go d.run(d.gen, e.PaymentID, q)
+		go d.run(d.gen, paymentID, q)
 	}
 	q.jobs = append(q.jobs, j)
-	return j.first
 }
 
 // Deliveries returns every delivery of a payment in the order they were queued.
