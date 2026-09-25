@@ -324,7 +324,7 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
 	}
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	_, _ = io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	a.StatusCode = resp.StatusCode
 	a.ResponseBody = string(respBody)

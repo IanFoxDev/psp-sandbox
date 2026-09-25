@@ -192,7 +192,7 @@ func TestOrderPerPayment(t *testing.T) {
 
 	got := rc.wait(t, 2)
 	ids := []string{got[0].eventID, got[1].eventID}
-	if !(contains(ids, "evt_a1") && contains(ids, "evt_b1")) {
+	if !contains(ids, "evt_a1") || !contains(ids, "evt_b1") {
 		t.Fatalf("before retry got %v, want evt_a1 and evt_b1", ids)
 	}
 
@@ -226,7 +226,7 @@ func TestParallelCopies(t *testing.T) {
 	const copies = 4
 	var inFlight, peak, count atomic.Int32
 	arrived := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		n := inFlight.Add(1)
 		for {
 			p := peak.Load()

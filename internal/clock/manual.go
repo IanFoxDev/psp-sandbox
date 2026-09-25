@@ -20,12 +20,15 @@ func NewManual(start time.Time) *Manual {
 	return &Manual{now: start}
 }
 
+// Now returns the current time of the clock.
 func (m *Manual) Now() time.Time {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.now
 }
 
+// AfterFunc schedules f to run when Advance passes now+d. A zero or negative d
+// runs f right away in its own goroutine.
 func (m *Manual) AfterFunc(d time.Duration, f func()) Timer {
 	m.mu.Lock()
 	defer m.mu.Unlock()

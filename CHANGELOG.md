@@ -12,3 +12,10 @@ such changes are marked **BREAKING**.
 - Repository layout, API and scenario design documents.
 - HTTP server skeleton with `/healthz` and `/version`, configuration from environment.
 - PHP client skeleton: scenario catalog and Standard Webhooks signature verifier.
+- Provider API: create, get, list by reference, capture, cancel and refund payments,
+  `Idempotency-Key` on create and refund, optional bearer key (`PSP_API_KEY`).
+- Signed callbacks (Standard Webhooks) with retries on `PSP_RETRY_SCHEDULE`, one at a
+  time per payment in event order, and a log of every attempt.
+- Manual clock (`PSP_CLOCK=manual`) that drives status changes, delayed callbacks and
+  retries.
+- Scenario `happy_path`.

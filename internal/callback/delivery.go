@@ -24,6 +24,7 @@ type Plan struct {
 // Status of a delivery.
 type Status string
 
+// Delivery statuses.
 const (
 	StatusPending   Status = "pending"
 	StatusSucceeded Status = "succeeded"

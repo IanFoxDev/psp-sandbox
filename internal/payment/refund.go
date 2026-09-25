@@ -5,6 +5,7 @@ import "time"
 // RefundStatus of a refund.
 type RefundStatus string
 
+// Refund statuses.
 const (
 	RefundPending   RefundStatus = "pending"
 	RefundSucceeded RefundStatus = "succeeded"

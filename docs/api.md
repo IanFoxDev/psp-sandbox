@@ -7,7 +7,8 @@ The sandbox exposes two APIs on the same port (default `8090`):
 - **Control API** (`/_sandbox/*`): what your tests call to inspect and drive the sandbox.
 
 All bodies are JSON. Amounts are integers in minor units (`1000` EUR means 10.00 EUR).
-Currency is an ISO 4217 code; the sandbox knows the minor-unit exponent of each.
+Currency is an uppercase code of 3 to 5 characters (`EUR`, `JPY`, `USDT`). The sandbox
+does not convert or round amounts, so the minor unit is whatever your application uses.
 
 ## Authentication
 
@@ -65,6 +66,10 @@ Response `201`:
 The payment moves to its next status asynchronously and a callback is sent, unless the
 scenario says otherwise.
 
+A replayed response (same `Idempotency-Key`, same body) carries `Idempotent-Replayed: true`.
+It is the stored answer, so it may say `pending` for a payment that is already captured.
+Unknown fields in the body are rejected with `400`, which catches typos early.
+
 ### Get a payment
 
 `GET /v1/payments/{id}` returns the payment object. `404` if unknown.
@@ -89,7 +94,9 @@ Only from `authorized`. Returns the payment.
 ```
 
 Returns a refund object `{ "id": "ref_...", "payment_id": "...", "status": "pending", "amount": 300 }`.
-The refund result arrives as a `refund.succeeded` or `refund.failed` callback.
+The refund settles after `PSP_PROCESSING_DELAY` and the result arrives as a
+`refund.succeeded` callback, or `refund.failed` if the payment changed status meanwhile
+(for example, a chargeback opened).
 `Idempotency-Key` works the same way as for create.
 
 ### Payment statuses

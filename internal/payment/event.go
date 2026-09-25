@@ -5,6 +5,7 @@ import "time"
 // EventType names what happened. It is the "type" field of a callback.
 type EventType string
 
+// Event types sent in callbacks.
 const (
 	EventPaymentAuthorized EventType = "payment.authorized"
 	EventPaymentCaptured   EventType = "payment.captured"

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ghuser/psp-sandbox/internal/app"
 	"github.com/ghuser/psp-sandbox/internal/config"
 )
 
@@ -26,17 +27,16 @@ func main() {
 
 	log := newLogger(cfg.LogFormat)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("ok\n"))
-	})
-	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(version + "\n"))
-	})
+	a, err := app.New(cfg, log, version)
+	if err != nil {
+		log.Error("invalid configuration", "err", err)
+		os.Exit(2)
+	}
+	defer a.Close()
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           mux,
+		Handler:           a.Handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -44,7 +44,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Info("psp-sandbox listening", "addr", cfg.Addr, "version", version)
+		log.Info("psp-sandbox listening", "addr", cfg.Addr, "version", version, "manual_clock", cfg.ManualClock)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("server stopped", "err", err)
 			stop()

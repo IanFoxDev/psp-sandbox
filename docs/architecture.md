@@ -10,10 +10,14 @@ cmd/psp-sandbox/        main: config, wiring, HTTP server, graceful shutdown
 internal/config/        env and flag parsing into a Config struct
 internal/clock/         Clock interface: real time or manual (advanced by the control API)
 internal/payment/       domain: Payment, Refund, statuses, allowed transitions
-internal/store/         in-memory storage for payments, refunds, events, deliveries, idempotency keys
+internal/ids/            prefixed ids (pay_, evt_, ...), reproducible with PSP_SEED
+internal/store/         in-memory storage for payments, refunds, events, idempotency keys
 internal/scenario/      Scenario interface, catalog, header parsing, rules file
 internal/signing/       Standard Webhooks signer
 internal/callback/      dispatcher: per-payment ordered queue, retries, delivery log
+internal/engine/        creates payments, runs scenario steps on the clock, emits events
+internal/app/           wiring from Config to an http.Handler, shared by main and tests
+internal/sandboxtest/   test helpers: a full sandbox plus a signed-callback receiver
 internal/api/           provider API handlers (/v1/*)
 internal/control/       control API handlers (/_sandbox/*)
 internal/ui/            embedded web UI (html/template + a little vanilla JS)
@@ -32,12 +36,18 @@ POST /v1/payments
   -> scenario.OnCreate(ctx) decides:
        - what to answer and when (normal, delayed, 5xx, connection reset)
        - which events to schedule and at what offsets
-  -> scheduler (on clock) applies status transitions at their time
+  -> engine applies status transitions at their time on the sandbox clock
   -> each transition emits an event -> callback dispatcher
   -> dispatcher asks scenario.Deliveries(event) how to send it
        (once, N copies, parallel, delayed, bad signature, dropped)
   -> signer -> HTTP POST -> delivery log
 ```
+
+Steps due at offset zero are applied before the create call answers. Response timings
+(holding the answer, closing the connection) use the wall clock, because they are about
+the network. Everything about the payment (status changes, delayed callbacks, retries)
+uses the sandbox clock, so `PSP_CLOCK=manual` controls it. The `webhook-timestamp` of a
+callback is always wall-clock time: receivers compare it with their own clock.
 
 The `Scenario` interface has two hooks: one for the synchronous part (the HTTP answer and
 the schedule of status changes) and one for the asynchronous part (how each event is

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Config is the sandbox configuration. See docs/api.md for the variables.
 type Config struct {
 	Addr            string
 	APIKey          string
@@ -22,6 +23,7 @@ type Config struct {
 	LogFormat       string
 }
 
+// FromEnv reads PSP_* variables, applying defaults for unset ones.
 func FromEnv() (Config, error) {
 	c := Config{
 		Addr:            env("PSP_ADDR", ":8090"),

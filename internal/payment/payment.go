@@ -12,6 +12,7 @@ import (
 // Status of a payment. See docs/api.md for the diagram.
 type Status string
 
+// Payment statuses.
 const (
 	Pending           Status = "pending"
 	Authorized        Status = "authorized"
@@ -53,6 +54,7 @@ func (s Status) Final() bool {
 // CaptureMode says whether a payment is captured right after authorization.
 type CaptureMode string
 
+// Capture modes.
 const (
 	CaptureAuto   CaptureMode = "auto"
 	CaptureManual CaptureMode = "manual"

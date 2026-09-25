@@ -41,8 +41,10 @@ func Sleep(ctx context.Context, c Clock, d time.Duration) error {
 // Real is the wall clock.
 type Real struct{}
 
+// Now returns the current time.
 func (Real) Now() time.Time { return time.Now() }
 
+// AfterFunc calls f in its own goroutine after d.
 func (Real) AfterFunc(d time.Duration, f func()) Timer {
 	return time.AfterFunc(d, f)
 }
