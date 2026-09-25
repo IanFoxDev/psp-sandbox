@@ -255,6 +255,14 @@ func (e *Engine) Payment(id string) (payment.Payment, error) {
 	return e.store.Payment(id)
 }
 
+// Events returns the events of a payment in the order they happened.
+func (e *Engine) Events(paymentID string) ([]payment.Event, error) {
+	if _, err := e.store.Payment(paymentID); err != nil {
+		return nil, err
+	}
+	return e.store.Events(paymentID), nil
+}
+
 // Payments lists payments, optionally only those with a reference.
 func (e *Engine) Payments(reference string) []payment.Payment {
 	return e.store.Payments(reference)

@@ -12,6 +12,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/callback"
 	"github.com/ianfoxdev/psp-sandbox/internal/clock"
 	"github.com/ianfoxdev/psp-sandbox/internal/config"
+	"github.com/ianfoxdev/psp-sandbox/internal/control"
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
 	"github.com/ianfoxdev/psp-sandbox/internal/ids"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
@@ -88,6 +89,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		_, _ = w.Write([]byte(version + "\n"))
 	})
 	api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
+	control.New(eng, dispatcher, catalog, clk).Register(mux)
 
 	return &App{
 		Handler:    mux,
