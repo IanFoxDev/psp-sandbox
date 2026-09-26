@@ -28,7 +28,9 @@ type Config struct {
 	ProcessingDelay time.Duration
 	// CallbackURL is used when a payment has no callback_url of its own.
 	CallbackURL string
-	// DefaultScenario applies when a request names none.
+	// Rules pick a scenario when a request names none. May be nil.
+	Rules *scenario.Rules
+	// DefaultScenario applies when a request names none and no rule matches.
 	DefaultScenario scenario.Spec
 }
 
@@ -107,6 +109,10 @@ func (e *Engine) Create(req CreateRequest) (Created, error) {
 	spec := e.cfg.DefaultScenario
 	if req.Scenario != nil {
 		spec = *req.Scenario
+	} else if s, ok := e.cfg.Rules.Match(scenario.Input{
+		Amount: req.Amount, Currency: req.Currency, Reference: req.Reference, Metadata: req.Metadata,
+	}); ok {
+		spec = s
 	}
 	sc, err := e.catalog.Build(spec)
 	if err != nil {

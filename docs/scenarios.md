@@ -30,8 +30,19 @@ rules:
     params: { delay: 30s }
 ```
 
-`when` keys: `amount`, `currency`, `reference_prefix`, `metadata` (map, all keys must
-match). All keys in one `when` must match. Rules are checked top to bottom.
+`when` keys: `amount` (exact, minor units), `currency` (exact), `reference_prefix`,
+`metadata` (map; each listed key must be present with that value, other keys are
+ignored). All keys in one `when` must match. Rules are checked top to bottom, the first
+match wins. The header always wins over the rules.
+
+`params` take the same values as the header, written as YAML scalars: `times: 3`,
+`parallel: true`, `delay: 30s`.
+
+The file is read once at startup and checked strictly. The sandbox refuses to start if
+the file is missing, has an unknown key, a rule without `when` or `scenario`, an unknown
+scenario or parameter, or an invalid parameter value. The error names the rule by its
+position (`rule 3: ...`). A catch-all rule is not allowed: use `PSP_DEFAULT_SCENARIO`.
+To change the rules, restart the container.
 
 ## Catalog
 

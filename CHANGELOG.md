@@ -21,5 +21,8 @@ such changes are marked **BREAKING**.
 - Control API under `/_sandbox`: scenario catalog, delivery log with every attempt,
   event history, replay of a delivery, forced payment and chargeback events, clock
   status and advance, reset.
+- Rules file (`PSP_SCENARIOS_FILE`) that picks a scenario by amount, currency, reference
+  prefix or metadata when the create request has no `X-Sandbox-Scenario` header. Checked
+  at startup, so a typo stops the sandbox instead of falling back to `happy_path`.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.

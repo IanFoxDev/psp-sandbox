@@ -57,8 +57,8 @@ delivered). Most scenarios override only one of them.
 ## Why these choices
 
 - **Go, standard library first.** One static binary, small image, fast start in CI.
-  The only planned dependency is a YAML parser for the rules file.
-  See [ADR 0001](adr/0001-go-single-binary.md).
+  The only dependency is a YAML parser for the rules file
+  ([ADR 0004](adr/0004-yaml-parser.md)). See [ADR 0001](adr/0001-go-single-binary.md).
 - **Standard Webhooks for signing.** Receivers can use an existing library, and the
   scheme is close to what Stripe and Svix do. See [ADR 0002](adr/0002-standard-webhooks.md).
 - **PHP client in the same repository.** Scenario names and the signing scheme change

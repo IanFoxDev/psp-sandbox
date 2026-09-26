@@ -59,9 +59,17 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		return nil, fmt.Errorf("PSP_DEFAULT_SCENARIO: %w", err)
 	}
 
+	catalog := scenario.Builtin()
+	var rules *scenario.Rules
+	if cfg.ScenariosFile != "" {
+		if rules, err = scenario.LoadRules(cfg.ScenariosFile, catalog); err != nil {
+			return nil, fmt.Errorf("PSP_SCENARIOS_FILE: %w", err)
+		}
+		log.Info("loaded scenario rules", "file", cfg.ScenariosFile, "rules", rules.Len())
+	}
+
 	gen := ids.New(cfg.Seed)
 	st := store.New()
-	catalog := scenario.Builtin()
 	dispatcher := callback.New(callback.Options{
 		Clock:     clk,
 		Signer:    signer,
@@ -74,6 +82,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	eng, err := engine.New(engine.Config{
 		ProcessingDelay: cfg.ProcessingDelay,
 		CallbackURL:     cfg.CallbackURL,
+		Rules:           rules,
 		DefaultScenario: defaultSpec,
 	}, engine.Deps{Clock: clk, Store: st, Dispatcher: dispatcher, Catalog: catalog, IDs: gen, Log: log})
 	if err != nil {
