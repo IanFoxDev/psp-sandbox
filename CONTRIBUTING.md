@@ -11,6 +11,13 @@ make run       # build and start the sandbox on :8090
 make php-test  # PHP client tests (needs PHP 8.3+ and Composer)
 ```
 
+The PHP integration tests run only when `PSP_SANDBOX_URL` points at a running sandbox:
+
+```bash
+PSP_CALLBACK_URL=http://127.0.0.1:1/ PSP_RETRY_SCHEDULE=0s go run ./cmd/psp-sandbox &
+cd clients/php && PSP_SANDBOX_URL=http://127.0.0.1:8090 vendor/bin/phpunit
+```
+
 ## Proposing a scenario
 
 The most useful contributions are new failure scenarios taken from real provider

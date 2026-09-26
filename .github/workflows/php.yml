@@ -3,9 +3,9 @@ name: php
 on:
   push:
     branches: [master]
-    paths: ["clients/php/**", ".github/workflows/php.yml"]
+    paths: ["clients/php/**", "cmd/**", "internal/**", "go.mod", "go.sum", ".github/workflows/php.yml"]
   pull_request:
-    paths: ["clients/php/**", ".github/workflows/php.yml"]
+    paths: ["clients/php/**", "cmd/**", "internal/**", "go.mod", "go.sum", ".github/workflows/php.yml"]
 
 jobs:
   test:
@@ -13,15 +13,28 @@ jobs:
     strategy:
       matrix:
         php: ["8.3", "8.4", "8.5"]
-    defaults:
-      run:
-        working-directory: clients/php
     steps:
       - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      # The integration tests run against a real sandbox. Callbacks go nowhere and
+      # fail after one attempt, which is enough to check what the sandbox recorded.
+      - name: Start sandbox
+        run: |
+          go build -o /tmp/psp-sandbox ./cmd/psp-sandbox
+          PSP_CALLBACK_URL=http://127.0.0.1:1/ PSP_RETRY_SCHEDULE=0s /tmp/psp-sandbox > /tmp/psp-sandbox.log 2>&1 &
+          for i in $(seq 50); do curl -sf http://127.0.0.1:8090/healthz && exit 0; sleep 0.2; done
+          cat /tmp/psp-sandbox.log; exit 1
       - run: composer install --no-progress
+        working-directory: clients/php
       - run: vendor/bin/phpunit
+        working-directory: clients/php
+        env:
+          PSP_SANDBOX_URL: http://127.0.0.1:8090
       - run: vendor/bin/phpstan analyse --no-progress
+        working-directory: clients/php

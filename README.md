@@ -80,15 +80,22 @@ composer require --dev ianfoxdev/psp-sandbox-php
 ```
 
 ```php
+use PspSandbox\Client;
 use PspSandbox\Scenario;
 use PspSandbox\Webhook\Verifier;
 
 // verify callbacks in your app the same way you would for a real provider
 (new Verifier($secret))->verify($body, $headers);
 
-// pick a scenario from a test
-$client->withScenario(Scenario::DuplicateCallback, ['times' => 3])->createPayment(1000, 'EUR', 'order-42');
+// in a test: pick a scenario, then wait for the callbacks
+$sandbox = new Client('http://psp-sandbox:8090');
+$payment = $sandbox->createPayment(1000, 'EUR', reference: 'order-42',
+    scenario: Scenario::DuplicateCallback, scenarioParams: ['times' => 3]);
+$deliveries = $sandbox->waitForDeliveries($payment->id, count: 3);
 ```
+
+Any PSR-18 HTTP client works. A PHPUnit trait (`InteractsWithSandbox`) adds
+`waitForDeliveries()` and `waitForPaymentStatus()` that fail the test on timeout.
 
 The PHP package lives in [clients/php](clients/php) and is published as a separate
 read-only repository.
