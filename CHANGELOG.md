@@ -24,5 +24,7 @@ such changes are marked **BREAKING**.
 - Rules file (`PSP_SCENARIOS_FILE`) that picks a scenario by amount, currency, reference
   prefix or metadata when the create request has no `X-Sandbox-Scenario` header. Checked
   at startup, so a typo stops the sandbox instead of falling back to `happy_path`.
+- Web UI at `/_sandbox/`: payments with delivery counts, filter by reference, payment
+  page with events and every delivery attempt, replay and reset buttons, auto-refresh.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.

@@ -138,7 +138,7 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
 | `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`. Moves a manual clock, see below. |
 | `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. |
-| `GET /_sandbox/` | | Web UI (planned). |
+| `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. |
 
 ### Deliveries
@@ -204,6 +204,19 @@ sees the new status. Callbacks themselves are sent in the background.
 
 Without a manual clock the call returns `409 clock_not_manual`. Reset does not move the
 clock back.
+
+### Web UI
+
+Open `http://localhost:8090/_sandbox/` in a browser. The list shows the newest 200
+payments with status, scenario and a count of callback deliveries by status, and can be
+filtered by reference. A payment page shows its fields, events with their data, and
+every delivery with each attempt: request headers, response status and body, latency,
+error. A delivery can be replayed from there, and the whole sandbox can be reset from
+the list.
+
+The pages are plain HTML with forms, no JavaScript. Add `?refresh=2` to any page (or
+click "auto-refresh") to reload it every 2 seconds while a test runs. The UI routes
+under `/_sandbox/ui/` are for the browser; tests should use the JSON endpoints above.
 
 ## Configuration
 

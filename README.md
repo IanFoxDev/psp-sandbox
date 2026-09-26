@@ -98,7 +98,7 @@ read-only repository.
 Callbacks follow the [Standard Webhooks](https://www.standardwebhooks.com/) signing
 scheme (`webhook-id`, `webhook-timestamp`, `webhook-signature` headers), so any Standard
 Webhooks library can verify them. Failed deliveries are retried with backoff. Every
-delivery attempt is visible in the web UI and through the control API.
+delivery attempt is visible in the web UI at `/_sandbox/` and through the control API.
 Details: [docs/callbacks.md](docs/callbacks.md).
 
 ## Control API

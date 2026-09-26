@@ -18,6 +18,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 	"github.com/ianfoxdev/psp-sandbox/internal/store"
+	"github.com/ianfoxdev/psp-sandbox/internal/ui"
 )
 
 // App is a running sandbox without its listener.
@@ -99,6 +100,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	})
 	api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
 	control.New(eng, dispatcher, catalog, clk).Register(mux)
+	ui.New(eng, dispatcher, clk, log).Register(mux)
 
 	return &App{
 		Handler:    mux,

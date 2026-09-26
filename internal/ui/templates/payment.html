@@ -1,0 +1,82 @@
+{{define "content" -}}
+{{$p := .}}
+{{with .Data}}
+<h1 class="mono">{{.Payment.ID}} <span class="st st-{{.Payment.Status}}">{{.Payment.Status}}</span></h1>
+<div class="panel">
+<dl>
+  <dt>Amount</dt><dd>{{.Payment.Amount}} {{.Payment.Currency}} <span class="muted">(minor units)</span></dd>
+  <dt>Captured</dt><dd>{{.Payment.CapturedAmount}}</dd>
+  <dt>Refunded</dt><dd>{{.Payment.RefundedAmount}}</dd>
+  <dt>Reference</dt><dd>{{.Payment.Reference}}</dd>
+  <dt>Capture</dt><dd>{{.Payment.Capture}}</dd>
+  <dt>Scenario</dt><dd>{{.Payment.Scenario}}</dd>
+  {{with .Payment.FailureReason}}<dt>Failure reason</dt><dd>{{.}}</dd>{{end}}
+  <dt>Created</dt><dd>{{ts .Payment.CreatedAt}}</dd>
+  <dt>Updated</dt><dd>{{ts .Payment.UpdatedAt}}</dd>
+  {{range $k, $v := .Payment.Metadata}}<dt>metadata.{{$k}}</dt><dd>{{$v}}</dd>{{end}}
+</dl>
+</div>
+
+<h2>Events</h2>
+{{if .Events}}
+<div class="table">
+<table>
+  <thead><tr><th>Time</th><th>Type</th><th>Event</th><th>Data</th></tr></thead>
+  <tbody>
+  {{range .Events}}
+  <tr>
+    <td class="muted">{{ts .CreatedAt}}</td>
+    <td>{{.Type}}</td>
+    <td class="mono">{{.ID}}</td>
+    <td><details><summary>data</summary><pre>{{.PrettyData}}</pre></details></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}<p class="muted">No events yet.</p>{{end}}
+
+<h2>Callback deliveries</h2>
+{{range .Deliveries}}
+<div class="panel">
+  <h3>
+    <span class="mono">{{.ID}}</span>
+    <span>{{.EventType}}</span>
+    <span class="st st-{{.Status}}">{{.Status}}</span>
+    {{if gt .Copy 1}}<span class="muted">copy {{.Copy}}</span>{{end}}
+    {{with .ReplayOf}}<span class="muted">replay of <span class="mono">{{.}}</span></span>{{end}}
+    <form class="inline" method="post" action="{{$p.Link (printf "/_sandbox/ui/deliveries/%s/replay" .ID)}}">
+      <button type="submit">Replay</button>
+    </form>
+  </h3>
+  <div class="muted">event <span class="mono">{{.EventID}}</span> to <span class="mono">{{.URL}}</span>, queued {{ts .CreatedAt}}</div>
+  {{if .Attempts}}
+  <div class="table" style="margin-top:8px">
+  <table>
+    <thead><tr><th>#</th><th>Time</th><th>Response</th><th class="num">Latency</th><th>Details</th></tr></thead>
+    <tbody>
+    {{range .Attempts}}
+    <tr>
+      <td>{{.N}}</td>
+      <td class="muted">{{ts .At}}</td>
+      <td class="wrap">{{if .Error}}<span class="st-failed">{{.Error}}</span>{{else}}<span class="{{if and (ge .StatusCode 200) (lt .StatusCode 300)}}st-succeeded{{else}}st-failed{{end}}">{{.StatusCode}}</span>{{end}}</td>
+      <td class="num">{{.LatencyMS}} ms</td>
+      <td><details><summary>headers and response</summary>
+        <pre>{{range $k, $v := .RequestHeaders}}{{$k}}: {{$v}}
+{{end}}</pre>
+        {{with .ResponseBody}}<pre>{{.}}</pre>{{end}}
+      </details></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}<p class="muted">No attempts yet.</p>{{end}}
+  <details><summary>body</summary><pre>{{.PrettyBody}}</pre></details>
+</div>
+{{else}}<p class="muted">No deliveries.</p>{{end}}
+{{else}}
+<h1>Payment not found</h1>
+<p><a href="{{.Link "/_sandbox/"}}">Back to payments</a></p>
+{{end}}
+{{end}}

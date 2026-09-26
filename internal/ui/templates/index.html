@@ -1,0 +1,42 @@
+{{define "content" -}}
+{{$p := .}}
+<h1>Payments</h1>
+<div class="toolbar">
+  <form method="get" action="/_sandbox/">
+    <input type="text" name="reference" value="{{.Data.Reference}}" placeholder="reference" aria-label="Filter by reference">
+    {{if .Refresh}}<input type="hidden" name="refresh" value="{{.Refresh}}">{{end}}
+    <button type="submit">Filter</button>
+    {{if .Data.Reference}}<a href="{{.Link "/_sandbox/"}}">clear</a>{{end}}
+  </form>
+  <span class="muted">{{.Data.Total}} payment{{if ne .Data.Total 1}}s{{end}}{{if gt .Data.Total (len .Data.Rows)}}, newest {{len .Data.Rows}} shown{{end}}</span>
+  <form class="inline" method="post" action="{{.Link "/_sandbox/ui/reset"}}">
+    <button type="submit" title="Drop all payments, events and deliveries">Reset sandbox</button>
+  </form>
+</div>
+{{if .Data.Rows}}
+<div class="table">
+<table>
+  <thead><tr>
+    <th>Payment</th><th>Status</th><th class="num">Amount</th><th>Currency</th><th>Reference</th>
+    <th>Scenario</th><th>Callbacks</th><th>Created</th>
+  </tr></thead>
+  <tbody>
+  {{range .Data.Rows}}
+  <tr>
+    <td class="mono"><a href="{{$p.Link (printf "/_sandbox/ui/payments/%s" .Payment.ID)}}">{{.Payment.ID}}</a></td>
+    <td><span class="st st-{{.Payment.Status}}">{{.Payment.Status}}</span></td>
+    <td class="num">{{.Payment.Amount}}</td>
+    <td>{{.Payment.Currency}}</td>
+    <td>{{.Payment.Reference}}</td>
+    <td>{{.Payment.Scenario}}</td>
+    <td>{{if .Deliveries}}{{.Deliveries}}{{if .Succeeded}} <span class="st-succeeded">{{.Succeeded}} ok</span>{{end}}{{if .Failed}} <span class="st-failed">{{.Failed}} failed</span>{{end}}{{if .Pending}} <span class="st-pending">{{.Pending}} pending</span>{{end}}{{if .Dropped}} <span class="st-dropped">{{.Dropped}} dropped</span>{{end}}{{else}}<span class="muted">none</span>{{end}}</td>
+    <td class="muted">{{ts .Payment.CreatedAt}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<p class="muted">No payments yet. Create one with <code>POST /v1/payments</code>.</p>
+{{end}}
+{{end}}

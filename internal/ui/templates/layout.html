@@ -1,0 +1,75 @@
+{{define "layout" -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{if .Refresh}}<meta http-equiv="refresh" content="{{.Refresh}}">{{end}}
+<title>{{.Title}} - psp-sandbox</title>
+<style>
+:root { --fg: #1d1f23; --muted: #6b7079; --bg: #fafaf8; --panel: #fff; --line: #e3e3de;
+  --ok: #1a7f37; --bad: #c62828; --wait: #9a6700; --off: #6b7079; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  :root { --fg: #e6e6e3; --muted: #9a9ea6; --bg: #17181b; --panel: #1f2125; --line: #33363c;
+    --ok: #4ac26b; --bad: #ff6b6b; --wait: #d4a72c; --off: #9a9ea6; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0 16px 48px; background: var(--bg); color: var(--fg);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; padding: 14px 0;
+  border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+header .brand { font-weight: 600; color: var(--fg); text-decoration: none; }
+header .meta { color: var(--muted); font-size: 13px; }
+header .spacer { flex: 1; }
+main { max-width: 1200px; }
+a { color: inherit; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+h2 { font-size: 15px; margin: 28px 0 10px; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+pre { margin: 6px 0 0; padding: 10px; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; overflow-x: auto; }
+.table { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; }
+tr:last-child td { border-bottom: 0; }
+td.wrap { white-space: normal; overflow-wrap: anywhere; min-width: 16em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.st { font-weight: 500; }
+.st-captured, .st-succeeded, .st-refunded, .st-chargeback_won { color: var(--ok); }
+.st-failed, .st-disputed, .st-chargeback_lost { color: var(--bad); }
+.st-pending, .st-authorized, .st-partially_refunded { color: var(--wait); }
+.st-canceled, .st-dropped { color: var(--off); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.panel h3 { font-size: 14px; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--muted); }
+form.inline { display: inline; margin: 0; }
+button { font: inherit; padding: 3px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+button:hover { border-color: var(--muted); }
+input[type=text] { font: inherit; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--fg); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="{{.Link "/_sandbox/"}}">psp-sandbox</a>
+  <span class="meta">clock {{ts .Now}} UTC{{if .Manual}} (manual){{end}}</span>
+  <span class="spacer"></span>
+  <span class="meta">
+    {{if .Refresh}}refreshing every {{.Refresh}}s, <a href="{{.Path}}">stop</a>
+    {{else}}<a href="{{.Path}}?refresh=2">auto-refresh</a>{{end}}
+  </span>
+</header>
+<main>
+{{template "content" .}}
+</main>
+</body>
+</html>
+{{end}}
