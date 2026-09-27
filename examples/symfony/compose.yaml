@@ -26,12 +26,11 @@ services:
     # The whole repository is mounted: composer.json takes the PHP client from ../../clients/php.
     volumes: ["../..:/src"]
     working_dir: /src/examples/symfony
-    # Defaults come from .env. variables_order=EGPCS below lets real environment
-    # variables reach Symfony under the PHP built-in server.
+    # Defaults come from .env; the variables set here win (see ../php.Dockerfile).
     command: >
       sh -c "composer install --no-progress --no-interaction
       && bin/console app:schema
-      && PHP_CLI_SERVER_WORKERS=8 php -d variables_order=EGPCS -S 0.0.0.0:8000 -t public"
+      && frankenphp php-server --listen :8000 --root public"
     healthcheck:
       test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8000) ? 0 : 1);"]
       interval: 2s

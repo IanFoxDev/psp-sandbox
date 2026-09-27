@@ -8,6 +8,6 @@ A Symfony 7.4 shop with a naive and a safe payment callback handler, on plain DB
 - `src/Controller/SafeCallbackController.php`: signature, event id, row lock.
 - `tests/PspCallbackTest.php`: the three tests.
 
-The app runs under `php -d variables_order=EGPCS -S ...`. Without `E`, the PHP built-in
-server does not put environment variables into `$_SERVER`, and Symfony would take the
-values from `.env` instead of the ones set in `compose.yaml`.
+The image sets `variables_order = "EGPCS"` (see `../php.Dockerfile`). Without `E`,
+environment variables do not reach `$_SERVER` under a web server SAPI, and Symfony
+would take the values from `.env` instead of the ones set in the environment.

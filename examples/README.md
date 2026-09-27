@@ -40,7 +40,9 @@ every callback attempt. Both examples use port 8090, so run one at a time.
 ## How it is wired
 
 - `compose.yaml` starts PostgreSQL, the sandbox (built from this repository) and the
-  app under `php -S` with 8 workers, so parallel callbacks really run in parallel.
+  app under FrankenPHP with 16 threads, so parallel callbacks really run in parallel.
+  The PHP built-in server is not enough for this even with `PHP_CLI_SERVER_WORKERS`:
+  one worker may accept all copies and handle them one by one, and the race is gone.
 - The app calls the provider at `PSP_URL` and registers
   `PSP_CALLBACK_BASE_URL/psp/callback/{naive|safe}` as the callback URL, chosen by
   `PSP_CALLBACK_HANDLER`.

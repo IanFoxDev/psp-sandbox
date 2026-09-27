@@ -30,7 +30,7 @@ services:
     command: >
       sh -c "composer install --no-progress --no-interaction
       && php artisan migrate --force
-      && PHP_CLI_SERVER_WORKERS=8 php -S 0.0.0.0:8000 -t public"
+      && frankenphp php-server --listen :8000 --root public"
     healthcheck:
       test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8000) ? 0 : 1);"]
       interval: 2s
