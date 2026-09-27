@@ -26,6 +26,7 @@ such changes are marked **BREAKING**.
   at startup, so a typo stops the sandbox instead of falling back to `happy_path`.
 - Web UI at `/_sandbox/`: payments with delivery counts, filter by reference, payment
   page with events and every delivery attempt, replay and reset buttons, auto-refresh.
+  Screenshots in the README and `docs/api.md`.
 - PHP client: PSR-18 `Client` for the provider and control APIs with typed results,
   `waitForDeliveries()` and `waitForStatus()`, `ApiError` with the error code, and the
   PHPUnit trait `InteractsWithSandbox`. Integration tests run against a real sandbox

@@ -207,6 +207,11 @@ clock back.
 
 ### Web UI
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/ui-payments-dark.png">
+  <img alt="Payment list in the web UI with status, scenario and callback delivery counts" src="images/ui-payments-light.png" width="800">
+</picture>
+
 Open `http://localhost:8090/_sandbox/` in a browser. The list shows the newest 200
 payments with status, scenario and a count of callback deliveries by status, and can be
 filtered by reference. A payment page shows its fields, events with their data, and

@@ -29,7 +29,7 @@
     <td>{{.Payment.Currency}}</td>
     <td>{{.Payment.Reference}}</td>
     <td>{{.Payment.Scenario}}</td>
-    <td>{{if .Deliveries}}{{.Deliveries}}{{if .Succeeded}} <span class="st-succeeded">{{.Succeeded}} ok</span>{{end}}{{if .Failed}} <span class="st-failed">{{.Failed}} failed</span>{{end}}{{if .Pending}} <span class="st-pending">{{.Pending}} pending</span>{{end}}{{if .Dropped}} <span class="st-dropped">{{.Dropped}} dropped</span>{{end}}{{else}}<span class="muted">none</span>{{end}}</td>
+    <td>{{if .Deliveries}}{{if .Succeeded}}<span class="st-succeeded">{{.Succeeded}} ok</span> {{end}}{{if .Failed}}<span class="st-failed">{{.Failed}} failed</span> {{end}}{{if .Pending}}<span class="st-pending">{{.Pending}} pending</span> {{end}}{{if .Dropped}}<span class="st-dropped">{{.Dropped}} dropped</span>{{end}}{{else}}<span class="muted">none</span>{{end}}</td>
     <td class="muted">{{ts .Payment.CreatedAt}}</td>
   </tr>
   {{end}}

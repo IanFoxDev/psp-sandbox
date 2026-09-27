@@ -27,6 +27,10 @@ services:
       PSP_WEBHOOK_SECRET: whsec_dGVzdC1zZWNyZXQ=
 ```
 
+The image is published to GHCR with the v0.1 release. Until then, build it from a clone
+with `docker build -t ghcr.io/ianfoxdev/psp-sandbox:0.1 .` and the compose file above
+works as is.
+
 Create a payment and ask for a duplicate callback:
 
 ```bash
@@ -40,23 +44,31 @@ curl -s localhost:8090/v1/payments \
 Your app now receives the same `payment.captured` event three times, each one signed.
 If your handler credits the order three times, the test catches it before production does.
 
+Open http://localhost:8090/_sandbox/ to see every payment and every callback attempt:
+what was sent, what your app answered, how long it took.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui-payment-dark.png">
+  <img alt="Payment page in the web UI: one payment.captured event delivered three times, each delivery with its attempts and a Replay button" src="docs/images/ui-payment-light.png" width="800">
+</picture>
+
 ## Scenarios
 
-| Scenario | What happens |
-|---|---|
-| `happy_path` | Payment is captured, one callback. Default. |
-| `declined` | Payment fails with a decline reason. |
-| `duplicate_callback` | The same event is delivered N times, sequentially or in parallel. |
-| `callback_before_response` | The callback is sent before the HTTP response to create. |
-| `timeout_then_success` | The create request hangs past your client timeout, the payment still succeeds. |
-| `lost_callback` | No callback is ever sent. Only polling tells you the result. |
-| `delayed_callback` | The callback arrives after a configurable delay. |
-| `out_of_order` | Events for one payment arrive in reverse order. |
-| `ack_ignored` | Your app returns 200, the sandbox retries anyway. |
-| `invalid_signature` | The callback carries a wrong signature. |
-| `server_error_then_success` | The first N create requests return 5xx, the next one succeeds. |
-| `amount_mismatch` | The captured amount differs from the requested one. |
-| `chargeback_after` | A chargeback is opened some time after capture. |
+| Scenario | What happens | |
+|---|---|---|
+| `happy_path` | Payment is captured, one callback. Default. | v0.1 |
+| `declined` | Payment fails with a decline reason. | v0.1 |
+| `duplicate_callback` | The same event is delivered N times, sequentially or in parallel. | v0.1 |
+| `callback_before_response` | The callback is sent before the HTTP response to create. | v0.1 |
+| `timeout_then_success` | The create request hangs past your client timeout, the payment still succeeds. | v0.1 |
+| `lost_callback` | No callback is ever sent. Only polling tells you the result. | v0.1 |
+| `delayed_callback` | The callback arrives after a configurable delay. | v0.1 |
+| `out_of_order` | Events for one payment arrive in reverse order. | planned |
+| `ack_ignored` | Your app returns 200, the sandbox retries anyway. | planned |
+| `invalid_signature` | The callback carries a wrong signature. | planned |
+| `server_error_then_success` | The first N create requests return 5xx, the next one succeeds. | planned |
+| `amount_mismatch` | The captured amount differs from the requested one. | planned |
+| `chargeback_after` | A chargeback is opened some time after capture. Until then, `POST /_sandbox/payments/{id}/events` opens one by hand. | planned |
 
 Parameters and exact behavior: [docs/scenarios.md](docs/scenarios.md).
 
