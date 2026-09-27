@@ -1,0 +1,24 @@
+parameters:
+    psp.url: '%env(PSP_URL)%'
+    psp.callback_base_url: '%env(PSP_CALLBACK_BASE_URL)%'
+    psp.webhook_secret: '%env(PSP_WEBHOOK_SECRET)%'
+    psp.callback_handler: '%env(PSP_CALLBACK_HANDLER)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $pspUrl: '%psp.url%'
+            string $callbackBaseUrl: '%psp.callback_base_url%'
+            string $callbackHandler: '%psp.callback_handler%'
+            string $webhookSecret: '%psp.webhook_secret%'
+
+    App\:
+        resource: '../src/'
+        exclude: '../src/Kernel.php'
+
+    Doctrine\DBAL\Connection:
+        factory: ['App\ConnectionFactory', 'create']
+        arguments: ['%env(DATABASE_URL)%']
+        public: true

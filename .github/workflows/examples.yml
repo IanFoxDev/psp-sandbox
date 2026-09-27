@@ -1,0 +1,35 @@
+name: examples
+
+on:
+  push:
+    branches: [master]
+    paths: ["examples/**", "clients/php/**", "cmd/**", "internal/**", "Dockerfile", ".github/workflows/examples.yml"]
+  pull_request:
+    paths: ["examples/**", "clients/php/**", "cmd/**", "internal/**", "Dockerfile", ".github/workflows/examples.yml"]
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [laravel, symfony]
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker compose up -d --build --wait
+      - name: Safe handler passes
+        run: docker compose exec -T app vendor/bin/phpunit
+      # The naive handler must fail all three tests. If it starts passing, the
+      # example no longer shows the problem it exists for.
+      - name: Naive handler fails
+        run: |
+          out=$(docker compose exec -T -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit || true)
+          echo "$out"
+          echo "$out" | grep -q "Failures: 3"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v

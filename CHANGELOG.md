@@ -30,5 +30,8 @@ such changes are marked **BREAKING**.
   `waitForDeliveries()` and `waitForStatus()`, `ApiError` with the error code, and the
   PHPUnit trait `InteractsWithSandbox`. Integration tests run against a real sandbox
   in CI.
+- Laravel and Symfony example shops with a naive and a safe callback handler, and
+  tests that fail on the naive one under `duplicate_callback` and
+  `callback_before_response`. Run in CI.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.

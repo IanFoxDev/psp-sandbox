@@ -1,0 +1,8 @@
+# Rules for the example apps: the shop code does not know about the sandbox, the
+# order reference picks the scenario. See ../docs/scenarios.md.
+rules:
+  - when: { reference_prefix: "dup-" }
+    scenario: duplicate_callback
+    params: { times: 5, parallel: true }
+  - when: { reference_prefix: "early-" }
+    scenario: callback_before_response

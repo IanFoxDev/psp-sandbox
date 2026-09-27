@@ -1,0 +1,42 @@
+# docker compose up -d --build --wait
+# docker compose exec app vendor/bin/phpunit
+# docker compose exec -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit
+name: psp-sandbox-symfony
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment: { POSTGRES_USER: shop, POSTGRES_PASSWORD: shop, POSTGRES_DB: shop }
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "shop"]
+      interval: 1s
+      retries: 30
+
+  psp:
+    build: ../..
+    ports: ["8090:8090"] # web UI at http://localhost:8090/_sandbox/
+    environment:
+      PSP_WEBHOOK_SECRET: whsec_dGVzdC1zZWNyZXQ=
+      PSP_SCENARIOS_FILE: /etc/psp-sandbox/scenarios.yaml
+    volumes:
+      - ../scenarios.yaml:/etc/psp-sandbox/scenarios.yaml:ro
+
+  app:
+    build: { context: .., dockerfile: php.Dockerfile }
+    # The whole repository is mounted: composer.json takes the PHP client from ../../clients/php.
+    volumes: ["../..:/src"]
+    working_dir: /src/examples/symfony
+    # Defaults come from .env. variables_order=EGPCS below lets real environment
+    # variables reach Symfony under the PHP built-in server.
+    command: >
+      sh -c "composer install --no-progress --no-interaction
+      && bin/console app:schema
+      && PHP_CLI_SERVER_WORKERS=8 php -d variables_order=EGPCS -S 0.0.0.0:8000 -t public"
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8000) ? 0 : 1);"]
+      interval: 2s
+      start_period: 120s
+      retries: 60
+    depends_on:
+      postgres: { condition: service_healthy }
+      psp: { condition: service_started }

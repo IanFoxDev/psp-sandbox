@@ -100,6 +100,13 @@ Any PSR-18 HTTP client works. A PHPUnit trait (`InteractsWithSandbox`) adds
 The PHP package lives in [clients/php](clients/php) and is published as a separate
 read-only repository.
 
+## Examples
+
+[examples/](examples) has a Laravel and a Symfony shop, each with a naive and a safe
+callback handler. The same tests pass on the safe one and fail on the naive one: five
+parallel copies of one callback credit the order several times, and a callback that
+arrives before the create response leaves the order unpaid.
+
 ## Callbacks
 
 Callbacks follow the [Standard Webhooks](https://www.standardwebhooks.com/) signing

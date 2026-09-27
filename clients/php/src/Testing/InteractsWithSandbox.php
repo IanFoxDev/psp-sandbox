@@ -12,9 +12,9 @@ use PspSandbox\Payment;
 use PspSandbox\PaymentStatus;
 
 /**
- * PHPUnit helpers. The sandbox address comes from the PSP_SANDBOX_URL environment
- * variable (default http://localhost:8090); override sandbox() to build the client
- * differently.
+ * PHPUnit helpers. The sandbox address comes from PSP_SANDBOX_URL in $_SERVER,
+ * $_ENV or the process environment (default http://localhost:8090); override
+ * sandbox() to build the client differently.
  *
  * @phpstan-require-extends TestCase
  */
@@ -25,7 +25,8 @@ trait InteractsWithSandbox
     protected function sandbox(): Client
     {
         if ($this->sandboxClient === null) {
-            $url = getenv('PSP_SANDBOX_URL');
+            // Symfony Dotenv fills $_SERVER and $_ENV but not getenv(), so look in all three.
+            $url = $_SERVER['PSP_SANDBOX_URL'] ?? $_ENV['PSP_SANDBOX_URL'] ?? getenv('PSP_SANDBOX_URL');
             $this->sandboxClient = new Client(is_string($url) && $url !== '' ? $url : 'http://localhost:8090');
         }
 

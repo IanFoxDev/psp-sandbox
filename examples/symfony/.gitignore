@@ -1,0 +1,23 @@
+/.env.local
+/.env.local.php
+/.env.*.local
+/var/
+/vendor/
+/.phpunit.cache/
+composer.lock
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+/config/reference.php
