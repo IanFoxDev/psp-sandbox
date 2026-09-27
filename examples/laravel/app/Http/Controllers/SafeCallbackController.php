@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Shop\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +19,15 @@ use PspSandbox\Webhook\Verifier;
  * 3. In one transaction: record the event id (primary key, so a duplicate is a no-op
  *    even when copies arrive at the same moment), lock the order row, check the amount,
  *    apply the change once.
- * 4. Answer 2xx only after the transaction commits. Anything unexpected is a 5xx,
- *    so the provider retries instead of the event being lost.
+ * 4. Call other services only after the commit and only if this request applied the
+ *    event, so no row lock is held during a network call. (A transactional outbox
+ *    would make that call survive a crash right after the commit.)
+ * 5. Answer 2xx only after all that. Anything unexpected is a 5xx, so the provider
+ *    retries instead of the event being lost.
  */
 class SafeCallbackController
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, Warehouse $warehouse): Response
     {
         try {
             (new Verifier(config('psp.webhook_secret')))->verify($request->getContent(), $request->headers->all());
@@ -39,19 +43,19 @@ class SafeCallbackController
         }
         $payment = $event['data'];
 
-        DB::transaction(function () use ($event, $payment) {
+        $applied = DB::transaction(function () use ($event, $payment): bool {
             $fresh = DB::table('psp_events')->insertOrIgnore([
                 'event_id' => $event['id'],
                 'type' => $event['type'],
                 'received_at' => now(),
             ]);
             if ($fresh === 0) {
-                return; // already applied
+                return false; // already applied
             }
 
             $order = Order::where('reference', $payment['reference'])->lockForUpdate()->firstOrFail();
             if ($order->status === 'paid') {
-                return;
+                return false;
             }
             if ($payment['captured_amount'] !== $order->amount || $payment['currency'] !== $order->currency) {
                 throw new \RuntimeException("Order {$order->reference}: provider captured {$payment['captured_amount']} {$payment['currency']}");
@@ -61,7 +65,13 @@ class SafeCallbackController
             $order->credited_amount += $payment['captured_amount'];
             $order->status = 'paid';
             $order->save();
+
+            return true;
         });
+
+        if ($applied) {
+            $warehouse->reserve($payment['reference']);
+        }
 
         return response()->noContent();
     }

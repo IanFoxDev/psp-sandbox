@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Shop\Warehouse;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,13 +15,14 @@ use Symfony\Component\Routing\Attribute\Route;
  * - Looks the order up by the provider payment id, which is saved only after the
  *   create call returns. A callback that arrives earlier is ignored with 204, so
  *   the provider never retries and the order stays pending.
- * - "Already paid?" check and the credit are two separate steps. Two copies of
- *   the same callback that arrive together both see "pending" and both credit.
+ * - "Already paid?" check and the credit are two separate steps with a call to
+ *   another service in between. Copies of the same callback that arrive together
+ *   all see "pending" and all credit.
  */
 final class NaiveCallbackController
 {
     #[Route('/psp/callback/naive', methods: ['POST'])]
-    public function __invoke(Request $request, Connection $db): Response
+    public function __invoke(Request $request, Connection $db, Warehouse $warehouse): Response
     {
         $event = $request->toArray();
         if ($event['type'] !== 'payment.captured') {
@@ -32,6 +34,7 @@ final class NaiveCallbackController
             return new Response(null, 204);
         }
 
+        $warehouse->reserve($order['reference']);
         $db->executeStatement(
             "UPDATE orders SET credited_amount = credited_amount + ?, status = 'paid' WHERE id = ?",
             [$event['data']['captured_amount'], $order['id']],

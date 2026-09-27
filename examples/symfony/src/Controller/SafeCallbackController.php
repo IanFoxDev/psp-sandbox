@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Shop\Warehouse;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use PspSandbox\Webhook\InvalidSignature;
@@ -18,14 +19,18 @@ use Symfony\Component\Routing\Attribute\Route;
  * 3. In one transaction: record the event id (primary key, so a duplicate is a no-op
  *    even when copies arrive at the same moment), lock the order row, check the amount,
  *    apply the change once.
- * 4. Answer 2xx only after the transaction commits. Anything unexpected is a 5xx,
- *    so the provider retries instead of the event being lost.
+ * 4. Call other services only after the commit and only if this request applied the
+ *    event, so no row lock is held during a network call. (A transactional outbox
+ *    would make that call survive a crash right after the commit.)
+ * 5. Answer 2xx only after all that. Anything unexpected is a 5xx, so the provider
+ *    retries instead of the event being lost.
  */
 final class SafeCallbackController
 {
     public function __construct(
         private readonly Connection $db,
         private readonly LoggerInterface $logger,
+        private readonly Warehouse $warehouse,
         private readonly string $webhookSecret,
     ) {
     }
@@ -47,13 +52,13 @@ final class SafeCallbackController
         }
         $payment = $event['data'];
 
-        $this->db->transactional(function (Connection $db) use ($event, $payment): void {
+        $applied = $this->db->transactional(function (Connection $db) use ($event, $payment): bool {
             $fresh = $db->executeStatement(
                 'INSERT INTO psp_events (event_id, type) VALUES (?, ?) ON CONFLICT (event_id) DO NOTHING',
                 [$event['id'], $event['type']],
             );
             if ($fresh === 0) {
-                return; // already applied
+                return false; // already applied
             }
 
             $order = $db->fetchAssociative('SELECT * FROM orders WHERE reference = ? FOR UPDATE', [$payment['reference']]);
@@ -61,7 +66,7 @@ final class SafeCallbackController
                 throw new \RuntimeException("Unknown order {$payment['reference']}");
             }
             if ($order['status'] === 'paid') {
-                return;
+                return false;
             }
             if ($payment['captured_amount'] !== (int) $order['amount'] || $payment['currency'] !== $order['currency']) {
                 throw new \RuntimeException("Order {$order['reference']}: provider captured {$payment['captured_amount']} {$payment['currency']}");
@@ -72,7 +77,13 @@ final class SafeCallbackController
                     psp_payment_id = COALESCE(psp_payment_id, ?) WHERE id = ?",
                 [$payment['captured_amount'], $payment['id'], $order['id']],
             );
+
+            return true;
         });
+
+        if ($applied) {
+            $this->warehouse->reserve($payment['reference']);
+        }
 
         return new Response(null, 204);
     }

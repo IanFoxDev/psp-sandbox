@@ -18,7 +18,11 @@ The same three tests run against both handlers:
 
 The "already paid?" check does stop copies that arrive one after another. It does not
 stop copies that arrive together: each request reads `pending` before any of them
-writes. `parallel=true` makes that happen on every run, not once a month in production.
+writes. Real handlers make that window wide by calling other services between the check
+and the write; here `Warehouse::reserve()` stands in for that call and takes 200 ms.
+`parallel=true` makes the copies overlap on every run, not once a month in production.
+The safe handler calls the warehouse after its transaction commits, and only for the
+copy that applied the event.
 
 ## Run
 
