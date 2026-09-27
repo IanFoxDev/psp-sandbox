@@ -1,34 +1,61 @@
-# Publishes clients/php to the read-only repository that Packagist tracks.
-# Needs a secret SPLIT_TOKEN with write access to ianfoxdev/psp-sandbox-php.
-# Without the secret the job does nothing, so forks and early pushes stay green.
+# Publishes clients/php to the read-only repository that Packagist tracks,
+# ianfoxdev/psp-sandbox-php: master on every push to master, tags on release.
+# Pushes over SSH with a deploy key that can write to that repository only
+# (secret SPLIT_SSH_KEY). Without the secret the job does nothing, so forks stay green.
 name: split-php-client
 
 on:
   push:
     branches: [master]
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish again, e.g. v0.1.0"
+        required: true
+
+concurrency: split-php-client
 
 jobs:
   split:
     runs-on: ubuntu-latest
     env:
-      SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+      SPLIT_SSH_KEY: ${{ secrets.SPLIT_SSH_KEY }}
+      TARGET: git@github.com:IanFoxDev/psp-sandbox-php.git
     steps:
-      - if: env.SPLIT_TOKEN == ''
-        run: echo "SPLIT_TOKEN is not set, skipping the split."
-      - if: env.SPLIT_TOKEN != ''
+      - if: env.SPLIT_SSH_KEY == ''
+        run: echo "SPLIT_SSH_KEY is not set, skipping the split."
+      - if: env.SPLIT_SSH_KEY != ''
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - if: env.SPLIT_TOKEN != ''
-        uses: danharrin/monorepo-split-github-action@v2.3.0
+      - if: env.SPLIT_SSH_KEY != ''
+        name: Split and push
         env:
-          GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
-        with:
-          package_directory: clients/php
-          repository_organization: ianfoxdev
-          repository_name: psp-sandbox-php
-          branch: master
-          tag: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          user_name: Anatoly Pankratyev
-          user_email: ianfoxdeveloper@gmail.com
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          install -m 600 /dev/null ~/split_key
+          printf '%s\n' "$SPLIT_SSH_KEY" > ~/split_key
+          export GIT_SSH_COMMAND="ssh -i ~/split_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+          if [ "$EVENT" = workflow_dispatch ]; then
+            tag="$INPUT_TAG"
+          elif [ "$REF_TYPE" = tag ]; then
+            tag="$REF_NAME"
+          else
+            tag=""
+          fi
+          if [ -n "$tag" ] && ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Not a release tag: $tag"; exit 1
+          fi
+
+          if [ -n "$tag" ]; then
+            sha=$(git subtree split --prefix=clients/php "refs/tags/$tag")
+            git push "$TARGET" "$sha:refs/tags/$tag"
+          else
+            sha=$(git subtree split --prefix=clients/php HEAD)
+            git push "$TARGET" "$sha:refs/heads/master"
+          fi
