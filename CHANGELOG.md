@@ -7,11 +7,14 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-27
+
+First release.
+
 ### Added
 
-- Repository layout, API and scenario design documents.
-- HTTP server skeleton with `/healthz` and `/version`, configuration from environment.
-- PHP client skeleton: scenario catalog and Standard Webhooks signature verifier.
+- One static binary in a multi-arch image (`ghcr.io/ianfoxdev/psp-sandbox`, amd64 and
+  arm64), configured with `PSP_*` environment variables, `/healthz` and `/version`.
 - Provider API: create, get, list by reference, capture, cancel and refund payments,
   `Idempotency-Key` on create and refund, optional bearer key (`PSP_API_KEY`).
 - Signed callbacks (Standard Webhooks) with retries on `PSP_RETRY_SCHEDULE`, one at a
@@ -27,7 +30,8 @@ such changes are marked **BREAKING**.
 - Web UI at `/_sandbox/`: payments with delivery counts, filter by reference, payment
   page with events and every delivery attempt, replay and reset buttons, auto-refresh.
   Screenshots in the README and `docs/api.md`.
-- PHP client: PSR-18 `Client` for the provider and control APIs with typed results,
+- PHP client (`ianfoxdev/psp-sandbox-php`): Standard Webhooks signature verifier,
+  scenario enum, PSR-18 `Client` for the provider and control APIs with typed results,
   `waitForDeliveries()` and `waitForStatus()`, `ApiError` with the error code, and the
   PHPUnit trait `InteractsWithSandbox`. Integration tests run against a real sandbox
   in CI.
@@ -36,3 +40,6 @@ such changes are marked **BREAKING**.
   `callback_before_response`. Run in CI.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
+
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/IanFoxDev/psp-sandbox/releases/tag/v0.1.0

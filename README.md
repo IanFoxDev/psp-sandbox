@@ -11,8 +11,8 @@ vendor sandbox, so this code usually ships untested.
 psp-sandbox is a single Docker container that speaks a simple PSP-style API, sends signed
 callbacks to your app, and lets each test pick a failure scenario by name.
 
-> Status: early development. The API described in [docs/api.md](docs/api.md) is the
-> target for v0.1 and may change before the first release.
+> Status: v0.1. Until 1.0, a minor version may change the API; such changes are marked
+> **BREAKING** in the [CHANGELOG](CHANGELOG.md).
 
 ## Quick start
 
@@ -26,10 +26,6 @@ services:
       PSP_CALLBACK_URL: http://app/api/psp/callback
       PSP_WEBHOOK_SECRET: whsec_dGVzdC1zZWNyZXQ=
 ```
-
-The image is published to GHCR with the v0.1 release. Until then, build it from a clone
-with `docker build -t ghcr.io/ianfoxdev/psp-sandbox:0.1 .` and the compose file above
-works as is.
 
 Create a payment and ask for a duplicate callback:
 

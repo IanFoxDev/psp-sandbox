@@ -46,7 +46,8 @@ To change the rules, restart the container.
 
 ## Catalog
 
-Status in the first column: **v0.1** means planned for the first release.
+Status in the first column: **v0.1** means available since 0.1.0; later versions are
+planned and not implemented yet.
 
 | | Scenario | Parameters | Behavior |
 |---|---|---|---|
