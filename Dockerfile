@@ -14,4 +14,5 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/psp-sandbox /psp-sandbox
 EXPOSE 8090
 USER nonroot:nonroot
+HEALTHCHECK --interval=5s --timeout=3s --start-period=2s CMD ["/psp-sandbox", "healthcheck"]
 ENTRYPOINT ["/psp-sandbox"]
