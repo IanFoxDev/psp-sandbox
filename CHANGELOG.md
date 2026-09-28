@@ -12,6 +12,9 @@ such changes are marked **BREAKING**.
 - `psp-sandbox healthcheck` checks `/healthz` of the running server and exits 0 or 1.
   The image uses it as its Docker `HEALTHCHECK`, so compose can wait for
   `service_healthy`.
+- Startup warnings when `PSP_CALLBACK_URL` or `PSP_WEBHOOK_SECRET` is not set.
+- Unknown paths and wrong methods answer with the JSON error shape
+  (`404 not_found`, `405 method_not_allowed`) instead of plain text.
 
 ### Changed
 
@@ -19,9 +22,21 @@ such changes are marked **BREAKING**.
   https URL. It used to start and fail on every delivery.
 - PHP client: `new Client()` without an HTTP client throws `MissingHttpClient`,
   which names the packages to install, instead of a php-http/discovery error.
+- PHP client: `InvalidSignature` implements `SandboxException` like the other
+  exceptions of the package.
+- Invalid JSON bodies and rules files are reported by field and line, without Go
+  type names: `amount must be an integer`, `line 2: unknown key amout`.
+- Failed callback deliveries are logged as warnings.
 
 ### Fixed
 
+- A rule with a lowercase `currency` is rejected at startup. It used to load and
+  never match.
+- `POST /_sandbox/clock/advance` accepts at most 10 years. Larger values overflowed
+  and could move the clock back.
+- PHP client: `Verifier::verify()` accepts `$request->headers->all()` from Symfony
+  and Laravel without a PHPStan error in the calling code.
+- PHP client: the package archive no longer ships tests and tool configs.
 - One `POST /_sandbox/clock/advance` runs every callback retry that falls due within
   it. Before, each call released at most one retry per delivery.
 - `POST /v1/payments/{id}/capture` with `"amount": 0` returns `400` instead of
