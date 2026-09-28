@@ -37,6 +37,9 @@ curl -s localhost:8090/v1/payments \
   -d '{"amount": 1000, "currency": "EUR", "reference": "order-42"}'
 ```
 
+The image has a Docker healthcheck, so the app can wait for
+`depends_on: { psp: { condition: service_healthy } }`.
+
 Your app now receives the same `payment.captured` event three times, each one signed.
 If your handler credits the order three times, the test catches it before production does.
 
