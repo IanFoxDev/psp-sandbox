@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"reflect"
+	"strings"
 
 	"github.com/ianfoxdev/psp-sandbox/internal/callback"
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
@@ -75,8 +78,57 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, v any, allowEmpty bool) bo
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body: "+err.Error())
+		WriteError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body: "+jsonProblem(err))
+		return false
+	}
+	if dec.More() {
+		WriteError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body: unexpected data after the object")
 		return false
 	}
 	return true
+}
+
+// jsonProblem describes a decoding error in terms of the request, without Go
+// type names such as "createRequest.amount of type int64".
+func jsonProblem(err error) string {
+	var typeErr *json.UnmarshalTypeError
+	var syntaxErr *json.SyntaxError
+	switch {
+	case errors.Is(err, io.EOF):
+		return "body is empty"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "body ends too early"
+	case errors.As(err, &syntaxErr):
+		return fmt.Sprintf("syntax error at byte %d", syntaxErr.Offset)
+	case errors.As(err, &typeErr):
+		if typeErr.Field == "" {
+			return "body must be a JSON object"
+		}
+		return fmt.Sprintf("%s must be %s", typeErr.Field, jsonKind(typeErr.Type))
+	}
+	if name, ok := strings.CutPrefix(err.Error(), "json: unknown field "); ok {
+		return "unknown field " + name
+	}
+	return err.Error()
+}
+
+func jsonKind(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "an integer"
+	case reflect.Float32, reflect.Float64:
+		return "a number"
+	case reflect.String:
+		return "a string"
+	case reflect.Bool:
+		return "true or false"
+	case reflect.Map, reflect.Struct:
+		return "an object"
+	case reflect.Slice, reflect.Array:
+		return "an array"
+	case reflect.Pointer:
+		return jsonKind(t.Elem())
+	}
+	return "of another type"
 }
