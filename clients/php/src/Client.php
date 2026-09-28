@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PspSandbox;
 
+use Http\Discovery\Exception as DiscoveryException;
 use Http\Discovery\Psr17FactoryDiscovery;
 use Http\Discovery\Psr18ClientDiscovery;
 use Psr\Http\Client\ClientExceptionInterface;
@@ -12,6 +13,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use PspSandbox\Exception\ApiError;
+use PspSandbox\Exception\MissingHttpClient;
 use PspSandbox\Exception\Timeout;
 use PspSandbox\Exception\UnexpectedResponse;
 use PspSandbox\Internal\Fields;
@@ -20,7 +22,7 @@ use PspSandbox\Internal\Fields;
  * Client for the provider API (/v1) and the control API (/_sandbox) of psp-sandbox.
  *
  * Any PSR-18 client works. Without one, php-http/discovery finds the one installed
- * in the project (Guzzle, Symfony HttpClient and others).
+ * in the project: Guzzle, or Symfony HttpClient together with nyholm/psr7.
  */
 final class Client
 {
@@ -32,6 +34,8 @@ final class Client
     /**
      * @param string      $baseUrl sandbox address, e.g. "http://psp-sandbox:8090"
      * @param string|null $apiKey  sent as a bearer token to /v1, needed only with PSP_API_KEY
+     *
+     * @throws MissingHttpClient
      */
     public function __construct(
         string $baseUrl = 'http://localhost:8090',
@@ -43,9 +47,13 @@ final class Client
         private readonly int $pollInterval = 50_000,
     ) {
         $this->baseUrl = rtrim($baseUrl, '/');
-        $this->http = $http ?? Psr18ClientDiscovery::find();
-        $this->requests = $requests ?? Psr17FactoryDiscovery::findRequestFactory();
-        $this->streams = $streams ?? Psr17FactoryDiscovery::findStreamFactory();
+        try {
+            $this->http = $http ?? Psr18ClientDiscovery::find();
+            $this->requests = $requests ?? Psr17FactoryDiscovery::findRequestFactory();
+            $this->streams = $streams ?? Psr17FactoryDiscovery::findStreamFactory();
+        } catch (DiscoveryException $e) {
+            throw MissingHttpClient::because($e);
+        }
     }
 
     // Provider API: what the application under test calls. Useful in tests that

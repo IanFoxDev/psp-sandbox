@@ -7,6 +7,11 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Changed
+
+- PHP client: `new Client()` without an HTTP client throws `MissingHttpClient`,
+  which names the packages to install, instead of a php-http/discovery error.
+
 ### Fixed
 
 - PHP client: removed `Scenario` cases the server does not implement yet

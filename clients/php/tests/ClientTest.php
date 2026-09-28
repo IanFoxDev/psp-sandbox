@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace PspSandbox\Tests;
 
+use Http\Discovery\ClassDiscovery;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\TestCase;
 use PspSandbox\Client;
 use PspSandbox\DeliveryStatus;
 use PspSandbox\Exception\ApiError;
+use PspSandbox\Exception\MissingHttpClient;
 use PspSandbox\Exception\Timeout;
 use PspSandbox\Exception\UnexpectedResponse;
 use PspSandbox\PaymentStatus;
@@ -76,6 +78,21 @@ final class ClientTest extends TestCase
                 'latency_ms' => 4,
             ]],
         ];
+    }
+
+    public function testNamesWhatToInstallWhenNoHttpClientIsFound(): void
+    {
+        $strategies = iterator_to_array(ClassDiscovery::getStrategies());
+        ClassDiscovery::setStrategies([]);
+        ClassDiscovery::clearCache();
+
+        try {
+            $this->expectException(MissingHttpClient::class);
+            $this->expectExceptionMessage('guzzlehttp/guzzle');
+            new Client();
+        } finally {
+            ClassDiscovery::setStrategies($strategies);
+        }
     }
 
     public function testCreatePayment(): void
