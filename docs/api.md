@@ -279,12 +279,12 @@ under `/_sandbox/ui/` are for the browser; tests should use the JSON endpoints a
 |---|---|---|
 | `PSP_ADDR` | `:8090` | Listen address. |
 | `PSP_API_KEY` | empty | If set, required bearer key. |
-| `PSP_CALLBACK_URL` | empty | Default callback URL. |
-| `PSP_WEBHOOK_SECRET` | random at start | `whsec_` + base64 secret for signing. Printed to the log if random. |
+| `PSP_CALLBACK_URL` | empty | Default callback URL, absolute http or https. A payment's `callback_url` overrides it. |
+| `PSP_WEBHOOK_SECRET` | random at start | Base64 secret for signing, `whsec_` prefix optional. Printed to the log if random. |
 | `PSP_SCENARIOS_FILE` | empty | Path to a rules file, see [scenarios.md](scenarios.md). |
-| `PSP_DEFAULT_SCENARIO` | `happy_path` | Scenario when neither header nor rule matches. |
-| `PSP_PROCESSING_DELAY` | `200ms` | Time between create and the first status change. |
-| `PSP_RETRY_SCHEDULE` | `0s,5s,30s,2m,10m,1h` | Callback retry delays. |
+| `PSP_DEFAULT_SCENARIO` | `happy_path` | Scenario when neither header nor rule matches. Takes parameters like the header: `duplicate_callback; times=3`. |
+| `PSP_PROCESSING_DELAY` | `200ms` | Time between create and the first status change, and until a refund settles. |
+| `PSP_RETRY_SCHEDULE` | `0s,5s,30s,2m,10m,1h` | Pause before each callback attempt, see [callbacks.md](callbacks.md#delivery-and-retries). |
 | `PSP_CLOCK` | `real` | `manual` enables `/_sandbox/clock/advance`. |
 | `PSP_SEED` | random | Seed for ids and jitter. Same seed, same ids. |
 | `PSP_LOG_FORMAT` | `text` | `text` or `json`. |
