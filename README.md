@@ -1,5 +1,10 @@
 # psp-sandbox
 
+[![go](https://github.com/IanFoxDev/psp-sandbox/actions/workflows/go.yml/badge.svg)](https://github.com/IanFoxDev/psp-sandbox/actions/workflows/go.yml)
+[![php](https://github.com/IanFoxDev/psp-sandbox/actions/workflows/php.yml/badge.svg)](https://github.com/IanFoxDev/psp-sandbox/actions/workflows/php.yml)
+[![release](https://img.shields.io/github/v/release/IanFoxDev/psp-sandbox)](https://github.com/IanFoxDev/psp-sandbox/releases)
+[![packagist](https://img.shields.io/packagist/v/ianfoxdev/psp-sandbox-php)](https://packagist.org/packages/ianfoxdev/psp-sandbox-php)
+
 A fake payment provider for tests and CI that fails the way real providers do.
 
 Real PSP sandboxes are built to show the happy path. Money gets lost somewhere else:
@@ -174,4 +179,4 @@ time to a provider behavior that is not in the list, open an issue with the
 
 ## License
 
-MIT
+[MIT](LICENSE)
