@@ -84,12 +84,14 @@ func TestRulesErrors(t *testing.T) {
 		{"list param", "rules:\n  - when: { amount: 1 }\n    scenario: declined\n    params: { reason: [a, b] }\n", "must be a single value"},
 		{"missing scenario", "rules:\n  - when: { amount: 1 }\n", "scenario is missing"},
 		{"empty when", "rules:\n  - scenario: declined\n", "when is empty"},
-		{"typo in when", "rules:\n  - when: { amounts: 1 }\n    scenario: declined\n", "field amounts not found"},
-		{"typo at top", "rule:\n  - when: { amount: 1 }\n    scenario: declined\n", "field rule not found"},
+		{"typo in when", "rules:\n  - when: { amounts: 1 }\n    scenario: declined\n", "line 2: unknown key amounts"},
+		{"typo at top", "rule:\n  - when: { amount: 1 }\n    scenario: declined\n", "line 1: unknown key rule"},
 		{"zero amount", "rules:\n  - when: { amount: 0 }\n    scenario: declined\n", "amount must be positive"},
 		{"lowercase currency", "rules:\n  - when: { currency: eur }\n    scenario: declined\n", `currency must be an uppercase code such as EUR, got "eur"`},
 		{"empty prefix", "rules:\n  - when: { reference_prefix: \"\" }\n    scenario: declined\n", "reference_prefix is empty"},
 		{"second rule", "rules:\n  - when: { amount: 1 }\n    scenario: declined\n  - when: { amount: 2 }\n    scenario: nope\n", "rule 2:"},
+		{"string amount", "rules:\n  - when: { amount: ten }\n    scenario: declined\n", `line 2: expected an integer, got "ten"`},
+		{"rules not a list", "rules: { amount: 1 }\n", "line 1: expected a list, got a mapping"},
 		{"not yaml", "rules: [\n", "yaml"},
 	}
 	for _, tt := range tests {

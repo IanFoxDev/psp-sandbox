@@ -41,7 +41,8 @@ match wins. The header always wins over the rules.
 The file is read once at startup and checked strictly. The sandbox refuses to start if
 the file is missing, has an unknown key, a rule without `when` or `scenario`, an unknown
 scenario or parameter, or an invalid parameter value. The error names the rule by its
-position (`rule 3: ...`). A catch-all rule is not allowed: use `PSP_DEFAULT_SCENARIO`.
+position (`rule 3: unknown scenario "happy"`), or the line for a YAML mistake
+(`line 2: unknown key amout`). A catch-all rule is not allowed: use `PSP_DEFAULT_SCENARIO`.
 To change the rules, restart the container.
 
 ## Catalog

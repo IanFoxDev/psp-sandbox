@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -74,7 +75,7 @@ func ParseRules(data []byte, c *Catalog) (*Rules, error) {
 	dec.KnownFields(true)
 	var f file
 	if err := dec.Decode(&f); err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
+		return nil, yamlProblem(err)
 	}
 
 	rs := &Rules{}
@@ -167,4 +168,50 @@ func (w When) matches(in Input) bool {
 		}
 	}
 	return true
+}
+
+var (
+	unknownField = regexp.MustCompile(`field (\S+) not found in type \S+`)
+	wrongType    = regexp.MustCompile("cannot unmarshal !!(\\w+)(?: `([^`]*)`)? into (.+)$")
+)
+
+// yamlProblem rewrites YAML decoding errors without Go type names:
+// "line 2: field amout not found in type scenario.fileWhen" becomes
+// "line 2: unknown key amout".
+func yamlProblem(err error) error {
+	var typeErr *yaml.TypeError
+	if !errors.As(err, &typeErr) {
+		return err
+	}
+	msgs := make([]string, len(typeErr.Errors))
+	for i, m := range typeErr.Errors {
+		m = unknownField.ReplaceAllString(m, "unknown key $1")
+		m = wrongType.ReplaceAllStringFunc(m, func(s string) string {
+			g := wrongType.FindStringSubmatch(s)
+			got := fmt.Sprintf("%q", g[2])
+			switch g[1] {
+			case "map":
+				got = "a mapping"
+			case "seq":
+				got = "a list"
+			}
+			return fmt.Sprintf("expected %s, got %s", yamlKind(g[3]), got)
+		})
+		msgs[i] = m
+	}
+	return errors.New(strings.Join(msgs, "; "))
+}
+
+func yamlKind(goType string) string {
+	switch {
+	case strings.HasPrefix(goType, "[]"):
+		return "a list"
+	case strings.HasPrefix(goType, "map"), strings.Contains(goType, "struct"), strings.Contains(goType, "file"):
+		return "a mapping"
+	case strings.Contains(goType, "int"):
+		return "an integer"
+	case goType == "string", goType == "*string":
+		return "a string"
+	}
+	return "another type"
 }
