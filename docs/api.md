@@ -57,11 +57,17 @@ Response `201`:
   "refunded_amount": 0,
   "currency": "EUR",
   "reference": "order-42",
+  "capture": "auto",
   "scenario": "happy_path",
   "created_at": "2026-09-25T10:00:00Z",
+  "updated_at": "2026-09-25T10:00:00Z",
   "metadata": { "customer_id": "c_1" }
 }
 ```
+
+`reference` and `metadata` are left out when empty. A failed payment also carries
+`failure_reason` (`insufficient_funds`, `do_not_honor`, `expired_card`,
+`fraud_suspected`).
 
 The payment moves to its next status asynchronously and a callback is sent, unless the
 scenario says otherwise.
@@ -87,7 +93,8 @@ method and path, so the same key on two different payments does not clash.
 
 `GET /v1/payments/{id}` returns the payment object. `404` if unknown.
 
-`GET /v1/payments?reference=order-42` returns `{"data": [ ...payments ]}`.
+`GET /v1/payments?reference=order-42` returns `{"data": [ ...payments ]}`, oldest first.
+Without `reference` it returns every payment.
 
 ### Capture
 
@@ -107,20 +114,41 @@ Only from `authorized`. Returns the payment.
 { "amount": 300, "reference": "refund-1" }
 ```
 
-Returns a refund object `{ "id": "ref_...", "payment_id": "...", "status": "pending", "amount": 300 }`.
+Response `201`:
+
+```json
+{
+  "id": "ref_01J9Z3P1B6D2",
+  "payment_id": "pay_01J9Z3K8Q2W5",
+  "status": "pending",
+  "amount": 300,
+  "currency": "EUR",
+  "reference": "refund-1",
+  "created_at": "2026-09-25T10:05:00Z",
+  "updated_at": "2026-09-25T10:05:00Z"
+}
+```
+
 The refund settles after `PSP_PROCESSING_DELAY` and the result arrives as a
 `refund.succeeded` callback, or `refund.failed` if the payment changed status meanwhile
-(for example, a chargeback opened).
-`Idempotency-Key` works the same way as for create.
+(for example, a chargeback opened). A failed refund carries `failure_reason`, such as
+`payment_disputed`. A refund larger than what is left to refund returns
+`422 amount_exceeds_captured`.
 
 ### Payment statuses
 
 ```
-pending -> authorized -> captured -> partially_refunded -> refunded
-   |           |            |
-   v           v            v
- failed     canceled     disputed -> chargeback_lost | chargeback_won
+pending -> captured                      (capture: auto, the default)
+pending -> authorized -> captured        (capture: manual)
+pending -> failed | canceled
+authorized -> canceled
+captured -> partially_refunded -> refunded
+captured | partially_refunded -> disputed -> chargeback_lost | chargeback_won
 ```
+
+With automatic capture there is no `authorized` step and no `payment.authorized`
+event. `refunded`, `failed`, `canceled`, `chargeback_lost` and `chargeback_won` are
+final.
 
 ### Errors
 
