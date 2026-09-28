@@ -1,5 +1,5 @@
 # Uses the local Go toolchain when available, otherwise runs the same commands in Docker.
-GO_IMAGE ?= golang:1.25
+GO_IMAGE ?= golang:1.27
 ifeq ($(shell command -v go 2>/dev/null),)
 GO = docker run --rm -v $(CURDIR):/src -v psp-sandbox-gocache:/root/.cache -w /src $(GO_IMAGE)
 else
