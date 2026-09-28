@@ -115,6 +115,32 @@ callback handler. The same tests pass on the safe one and fail on the naive one:
 parallel copies of one callback credit the order several times, and a callback that
 arrives before the create response leaves the order unpaid.
 
+## Where callbacks go
+
+`PSP_CALLBACK_URL` is the default target. A payment created with `callback_url` in the
+body gets its callbacks there instead.
+
+- App in the same compose file: use the service name, `http://app:8000/...`.
+- App running on your machine, sandbox in Docker: `http://host.docker.internal:8000/...`.
+  On Linux add `extra_hosts: ["host.docker.internal:host-gateway"]` to the sandbox
+  service.
+- Neither set: events are recorded but nothing is sent. The sandbox warns about it at
+  startup.
+
+## Configuration
+
+Everything is set with environment variables. The ones most tests need:
+
+| Variable | Default | |
+|---|---|---|
+| `PSP_CALLBACK_URL` | empty | Where callbacks go. |
+| `PSP_WEBHOOK_SECRET` | random | Signing secret. Set it, or your verifier rejects every callback. |
+| `PSP_SCENARIOS_FILE` | empty | Rules that pick a scenario by amount, currency, reference or metadata. |
+| `PSP_RETRY_SCHEDULE` | `0s,5s,30s,2m,10m,1h` | `0s` in CI: one attempt, no hour-long retries. |
+| `PSP_CLOCK` | `real` | `manual` to move time from tests (chargebacks, long delays). |
+
+The full list: [docs/api.md](docs/api.md#configuration).
+
 ## Callbacks
 
 Callbacks follow the [Standard Webhooks](https://www.standardwebhooks.com/) signing
