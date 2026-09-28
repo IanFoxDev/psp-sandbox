@@ -367,7 +367,7 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
 	if err != nil {
 		a.Error = err.Error()
 		d.record(del, a)
-		d.opts.Log.Info("callback failed", "delivery", del.ID, "event", del.EventID, "attempt", n, "err", err)
+		d.opts.Log.Warn("callback failed", "delivery", del.ID, "event", del.EventID, "attempt", n, "err", err)
 		return false
 	}
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
@@ -381,7 +381,11 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
 		a.Error = fmt.Sprintf("receiver answered %d", resp.StatusCode)
 	}
 	d.record(del, a)
-	d.opts.Log.Info("callback sent", "delivery", del.ID, "event", del.EventID, "type", del.EventType,
+	level, msg := slog.LevelInfo, "callback sent"
+	if !ok {
+		level, msg = slog.LevelWarn, "callback rejected"
+	}
+	d.opts.Log.Log(ctx, level, msg, "delivery", del.ID, "event", del.EventID, "type", del.EventType,
 		"attempt", n, "status", resp.StatusCode, "latency_ms", a.LatencyMS)
 	return ok
 }
