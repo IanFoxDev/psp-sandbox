@@ -25,7 +25,7 @@ Headers:
 
 | Header | Required | Meaning |
 |---|---|---|
-| `Idempotency-Key` | no | Same key and same body return the stored response. Same key with a different body returns `409`. |
+| `Idempotency-Key` | no | Same key and same request return the stored response. See [Idempotency](#idempotency). |
 | `X-Sandbox-Scenario` | no | Scenario for this payment, `name; param=value; param=value`. Overrides rules. |
 
 Body:
@@ -66,9 +66,22 @@ Response `201`:
 The payment moves to its next status asynchronously and a callback is sent, unless the
 scenario says otherwise.
 
-A replayed response (same `Idempotency-Key`, same body) carries `Idempotent-Replayed: true`.
-It is the stored answer, so it may say `pending` for a payment that is already captured.
 Unknown fields in the body are rejected with `400`, which catches typos early.
+
+### Idempotency
+
+`Idempotency-Key` works on create and refund. Capture and cancel need no key: repeating
+them gives `409 invalid_state`, never a second capture. A key is scoped to the
+method and path, so the same key on two different payments does not clash.
+
+- Same key, same request: the stored answer comes back with `Idempotent-Replayed: true`.
+  It is the answer as it was, so it may say `pending` for a payment that is already
+  captured.
+- Same key, different request: `409 idempotency_conflict`. The request is compared byte
+  for byte, body and `X-Sandbox-Scenario` header, so the same JSON with another key
+  order or whitespace counts as different.
+- Same key while the first request is still running: `409 idempotency_conflict`.
+- Error answers are not stored: a retry after a `4xx` or `5xx` runs the request again.
 
 ### Get a payment
 
