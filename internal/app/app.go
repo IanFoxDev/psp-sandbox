@@ -14,6 +14,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/config"
 	"github.com/ianfoxdev/psp-sandbox/internal/control"
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
+	"github.com/ianfoxdev/psp-sandbox/internal/httpx"
 	"github.com/ianfoxdev/psp-sandbox/internal/ids"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 	"github.com/ianfoxdev/psp-sandbox/internal/signing"
@@ -110,7 +111,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	ui.New(eng, dispatcher, clk, log).Register(mux)
 
 	return &App{
-		Handler:    mux,
+		Handler:    httpx.Routes(mux),
 		Engine:     eng,
 		Store:      st,
 		Dispatcher: dispatcher,

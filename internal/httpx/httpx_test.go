@@ -58,3 +58,38 @@ func TestReadJSONEmptyBody(t *testing.T) {
 		t.Errorf("empty body: %s", w.Body)
 	}
 }
+
+func TestRoutesAnswerJSON(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/payments", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+	mux.HandleFunc("GET /_sandbox/", func(http.ResponseWriter, *http.Request) {})
+	h := Routes(mux)
+
+	cases := []struct {
+		method, path string
+		status       int
+		code         string
+	}{
+		{http.MethodPost, "/v1/payments", http.StatusCreated, ""},
+		{http.MethodGet, "/v1/nope", http.StatusNotFound, "not_found"},
+		{http.MethodPut, "/v1/payments", http.StatusMethodNotAllowed, "method_not_allowed"},
+		{http.MethodGet, "/_sandbox", http.StatusTemporaryRedirect, ""},
+	}
+	for _, c := range cases {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(c.method, c.path, nil))
+		if w.Code != c.status {
+			t.Errorf("%s %s: %d, want %d", c.method, c.path, w.Code, c.status)
+			continue
+		}
+		if c.code == "" {
+			continue
+		}
+		var got Error
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Error.Code != c.code {
+			t.Errorf("%s %s: body %s, want code %s", c.method, c.path, w.Body, c.code)
+		}
+	}
+}

@@ -132,3 +132,38 @@ func jsonKind(t reflect.Type) string {
 	}
 	return "of another type"
 }
+
+// Routes wraps mux so that unknown paths and wrong methods get the usual JSON
+// error instead of the plain text answers of http.ServeMux.
+func Routes(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h, pattern := mux.Handler(r)
+		if pattern != "" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		probe := &statusProbe{header: http.Header{}}
+		h.ServeHTTP(probe, r)
+		switch probe.status {
+		case http.StatusNotFound:
+			WriteError(w, http.StatusNotFound, "not_found", "no endpoint "+r.URL.Path)
+		case http.StatusMethodNotAllowed:
+			w.Header().Set("Allow", probe.header.Get("Allow"))
+			WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed",
+				r.Method+" is not allowed on "+r.URL.Path+", use "+probe.header.Get("Allow"))
+		default:
+			// Redirects to the canonical path and the like.
+			mux.ServeHTTP(w, r)
+		}
+	})
+}
+
+// statusProbe records the status and headers a handler would write.
+type statusProbe struct {
+	header http.Header
+	status int
+}
+
+func (p *statusProbe) Header() http.Header         { return p.header }
+func (p *statusProbe) Write(b []byte) (int, error) { return len(b), nil }
+func (p *statusProbe) WriteHeader(status int)      { p.status = status }

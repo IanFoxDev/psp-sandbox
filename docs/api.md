@@ -160,7 +160,8 @@ final.
 |---|---|
 | 400 | `invalid_request` (also a capture larger than the payment amount) |
 | 401 | `unauthorized` |
-| 404 | `not_found` |
+| 404 | `not_found` (unknown id or unknown path) |
+| 405 | `method_not_allowed`, with an `Allow` header |
 | 409 | `idempotency_conflict`, `invalid_state`, `clock_not_manual` (control API) |
 | 422 | `amount_exceeds_captured` |
 | 500 | `internal_error`, a bug in the sandbox: please open an issue |
