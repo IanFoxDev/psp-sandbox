@@ -80,6 +80,15 @@ final class VerifierTest extends TestCase
         $this->verifier()->verify(self::BODY, $headers);
     }
 
+    public function testTreatsNullHeaderAsMissing(): void
+    {
+        $headers = $this->headers();
+        $headers['webhook-signature'] = [null];
+
+        $this->expectException(InvalidSignature::class);
+        $this->verifier()->verify(self::BODY, $headers);
+    }
+
     private function verifier(): Verifier
     {
         return new Verifier(self::SECRET, now: static fn (): int => self::NOW);

@@ -13,6 +13,11 @@ final readonly class Verifier
 
     private string $key;
 
+    /**
+     * @param string                 $secret           PSP_WEBHOOK_SECRET of the sandbox, with or without "whsec_"
+     * @param int                    $toleranceSeconds how far webhook-timestamp may be from now, either way
+     * @param (\Closure(): int)|null $now              unix time source for tests; time() by default
+     */
     public function __construct(
         string $secret,
         private int $toleranceSeconds = 300,
@@ -27,7 +32,9 @@ final readonly class Verifier
     }
 
     /**
-     * @param array<string, string|list<string>> $headers header names are matched case-insensitively
+     * Takes headers as a plain map or as Symfony/Laravel `$request->headers->all()`.
+     *
+     * @param array<string, string|null|list<string|null>> $headers header names are matched case-insensitively
      *
      * @throws InvalidSignature
      */
@@ -42,9 +49,6 @@ final readonly class Verifier
             throw new InvalidSignature('Invalid webhook-timestamp.');
         }
         $now = $this->now !== null ? ($this->now)() : time();
-        if (!is_int($now)) {
-            throw new \LogicException('Clock must return a unix timestamp.');
-        }
         if (abs($now - (int) $timestamp) > $this->toleranceSeconds) {
             throw new InvalidSignature('Timestamp is outside the tolerance window.');
         }
@@ -62,7 +66,7 @@ final readonly class Verifier
     }
 
     /**
-     * @param array<string, string|list<string>> $headers
+     * @param array<string, string|null|list<string|null>> $headers
      */
     private static function header(array $headers, string $name): string
     {
