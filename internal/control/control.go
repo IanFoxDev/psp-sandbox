@@ -132,8 +132,10 @@ func (c *Control) advance(w http.ResponseWriter, r *http.Request) {
 	if !httpx.ReadJSON(w, r, &req, false) {
 		return
 	}
-	if req.Seconds <= 0 {
-		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "seconds must be positive")
+	// Ten years is far beyond any scenario and far below the time.Duration limit.
+	const maxSeconds = 10 * 365 * 24 * 3600
+	if req.Seconds <= 0 || req.Seconds > maxSeconds {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "seconds must be positive and at most 315360000 (10 years)")
 		return
 	}
 	m.Advance(time.Duration(req.Seconds * float64(time.Second)))

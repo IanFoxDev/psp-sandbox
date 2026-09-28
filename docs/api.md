@@ -179,7 +179,7 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `POST /_sandbox/payments/{id}/events` | `201` | Force an event, see below. |
 | `POST /_sandbox/deliveries/{id}/replay` | `202` | Send the event of a delivery again, as a new delivery. |
 | `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
-| `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`. Moves a manual clock, see below. |
+| `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`, up to 10 years. Moves a manual clock and answers with its state. |
 | `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |

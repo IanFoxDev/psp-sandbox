@@ -173,8 +173,10 @@ func TestClockAdvance(t *testing.T) {
 	}
 	sb.Receiver.Wait(1)
 
-	if resp := sb.Do(http.MethodPost, "/_sandbox/clock/advance", map[string]any{"seconds": 0}); resp.Status != http.StatusBadRequest {
-		t.Fatalf("zero seconds: %d", resp.Status)
+	for _, seconds := range []float64{0, -1, 1e12} {
+		if resp := sb.Do(http.MethodPost, "/_sandbox/clock/advance", map[string]any{"seconds": seconds}); resp.Status != http.StatusBadRequest {
+			t.Fatalf("%v seconds: %d", seconds, resp.Status)
+		}
 	}
 }
 
