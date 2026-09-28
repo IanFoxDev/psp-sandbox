@@ -15,6 +15,8 @@ such changes are marked **BREAKING**.
 
 ### Changed
 
+- The sandbox refuses to start when `PSP_CALLBACK_URL` is not an absolute http or
+  https URL. It used to start and fail on every delivery.
 - PHP client: `new Client()` without an HTTP client throws `MissingHttpClient`,
   which names the packages to install, instead of a php-http/discovery error.
 

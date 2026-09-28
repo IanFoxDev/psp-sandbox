@@ -25,6 +25,19 @@ func TestInvalidClock(t *testing.T) {
 	}
 }
 
+func TestInvalidCallbackURL(t *testing.T) {
+	for _, v := range []string{"not-a-url", "app/api/psp/callback", "ftp://app/cb"} {
+		t.Setenv("PSP_CALLBACK_URL", v)
+		if _, err := FromEnv(); err == nil {
+			t.Errorf("PSP_CALLBACK_URL=%q accepted", v)
+		}
+	}
+	t.Setenv("PSP_CALLBACK_URL", "http://app:8000/api/psp/callback")
+	if _, err := FromEnv(); err != nil {
+		t.Errorf("valid URL rejected: %v", err)
+	}
+}
+
 func TestRetrySchedule(t *testing.T) {
 	t.Setenv("PSP_RETRY_SCHEDULE", "0s, 1s ,10s")
 	c, err := FromEnv()

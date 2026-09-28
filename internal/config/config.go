@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -34,6 +35,13 @@ func FromEnv() (Config, error) {
 		DefaultScenario: env("PSP_DEFAULT_SCENARIO", "happy_path"),
 		Seed:            os.Getenv("PSP_SEED"),
 		LogFormat:       env("PSP_LOG_FORMAT", "text"),
+	}
+
+	if c.CallbackURL != "" {
+		u, err := url.Parse(c.CallbackURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return c, fmt.Errorf("PSP_CALLBACK_URL: want an absolute http or https URL, got %q", c.CallbackURL)
+		}
 	}
 
 	var err error
