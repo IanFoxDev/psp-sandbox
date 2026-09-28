@@ -6,12 +6,16 @@ You need Docker. Go and PHP are optional: without a local Go toolchain the Makef
 
 ```bash
 make test      # Go tests with the race detector
-make lint      # golangci-lint
-make run       # build and start the sandbox on :8090
+make vet       # go vet
+make fmt       # gofmt, rewrites files
+make lint      # golangci-lint, in Docker
+make build     # Docker image psp-sandbox:dev
+make run       # build and start the sandbox on :8090 with docker compose
 make php-test  # PHP client tests (needs PHP 8.3+ and Composer)
 ```
 
-The PHP integration tests run only when `PSP_SANDBOX_URL` points at a running sandbox:
+The PHP integration tests run only when `PSP_SANDBOX_URL` points at a running sandbox.
+With a local Go toolchain:
 
 ```bash
 PSP_CALLBACK_URL=http://127.0.0.1:1/ PSP_RETRY_SCHEDULE=0s go run ./cmd/psp-sandbox &
@@ -34,7 +38,8 @@ describe:
 2. Register it in the catalog with its parameters and defaults.
 3. Add a test in `internal/scenario/<name>_test.go` that drives the sandbox over HTTP
    and asserts on the callbacks received by a test server.
-4. Add a row to `docs/scenarios.md` and a case to `clients/php/src/Scenario.php`.
+4. Add a row to `docs/scenarios.md`, to the scenario table in `README.md`, and a case
+   to `clients/php/src/Scenario.php`.
 5. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 
 ## Pull requests
