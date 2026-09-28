@@ -48,7 +48,6 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	secret := cfg.WebhookSecret
 	if secret == "" {
 		secret = signing.NewRandomSecret()
-		log.Info("generated webhook secret, set PSP_WEBHOOK_SECRET to fix it", "secret", secret)
 	}
 	signer, err := signing.New(secret)
 	if err != nil {
@@ -89,6 +88,14 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	if err != nil {
 		dispatcher.Close()
 		return nil, fmt.Errorf("PSP_DEFAULT_SCENARIO: %w", err)
+	}
+
+	// Warnings go last, after every check that can refuse to start.
+	if cfg.WebhookSecret == "" {
+		log.Warn("PSP_WEBHOOK_SECRET is not set, callbacks are signed with a random secret", "secret", secret)
+	}
+	if cfg.CallbackURL == "" {
+		log.Warn("PSP_CALLBACK_URL is not set, only payments created with callback_url get callbacks")
 	}
 
 	mux := http.NewServeMux()
