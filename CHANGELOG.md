@@ -7,6 +7,13 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Fixed
+
+- PHP client: removed `Scenario` cases the server does not implement yet
+  (`OutOfOrder`, `AckIgnored`, `InvalidSignature`, `ServerErrorThenSuccess`,
+  `AmountMismatch`, `ChargebackAfter`). Every request with them failed with
+  `400 invalid_request`. They come back with the release that adds them.
+
 ## [0.1.0] - 2026-09-27
 
 First release.

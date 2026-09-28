@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace PspSandbox;
 
 /**
- * Scenario catalog of the sandbox. Keep in sync with docs/scenarios.md.
+ * Scenarios the sandbox server supports. Parameters and behavior:
+ * https://github.com/IanFoxDev/psp-sandbox/blob/master/docs/scenarios.md
+ *
+ * A case is added in the client release that goes with the server release
+ * implementing it, so every case here works against the matching server.
  */
 enum Scenario: string
 {
@@ -16,12 +20,6 @@ enum Scenario: string
     case TimeoutThenSuccess = 'timeout_then_success';
     case LostCallback = 'lost_callback';
     case DelayedCallback = 'delayed_callback';
-    case OutOfOrder = 'out_of_order';
-    case AckIgnored = 'ack_ignored';
-    case InvalidSignature = 'invalid_signature';
-    case ServerErrorThenSuccess = 'server_error_then_success';
-    case AmountMismatch = 'amount_mismatch';
-    case ChargebackAfter = 'chargeback_after';
 
     public const string HEADER = 'X-Sandbox-Scenario';
 
