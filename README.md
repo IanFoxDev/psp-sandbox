@@ -96,7 +96,7 @@ use PspSandbox\Webhook\Verifier;
 (new Verifier($secret))->verify($body, $headers);
 
 // in a test: pick a scenario, then wait for the callbacks
-$sandbox = new Client('http://psp-sandbox:8090');
+$sandbox = new Client('http://psp:8090');
 $payment = $sandbox->createPayment(1000, 'EUR', reference: 'order-42',
     scenario: Scenario::DuplicateCallback, scenarioParams: ['times' => 3]);
 $deliveries = $sandbox->waitForDeliveries($payment->id, count: 3);
