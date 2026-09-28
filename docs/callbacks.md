@@ -35,13 +35,24 @@ webhook-signature: v1,<base64(HMAC-SHA256(secret, id + "." + timestamp + "." + b
 
 ## Delivery and retries
 
-- A delivery succeeds on any `2xx` within 10 seconds.
-- Otherwise it is retried on `PSP_RETRY_SCHEDULE` (default `0s,5s,30s,2m,10m,1h`),
-  with up to 10% jitter.
+- A delivery succeeds on any `2xx` within 10 seconds. Redirects are not followed: a
+  `3xx` counts as a failure.
+- `PSP_RETRY_SCHEDULE` (default `0s,5s,30s,2m,10m,1h`) lists the pause before each
+  attempt, the first one included. The default makes 6 attempts over about 1h12m.
+  `PSP_RETRY_SCHEDULE=0s` means one attempt and no retries, which is handy in CI.
+- Each pause gets 0 to 10% of jitter added, never subtracted.
 - After the last attempt the delivery is marked `failed`. It can still be replayed
   through `POST /_sandbox/deliveries/{id}/replay`.
 - Deliveries for one payment are sent in event order, one at a time, unless a scenario
-  says otherwise (`duplicate_callback` with `parallel=true`, `out_of_order`).
+  says otherwise (`duplicate_callback` with `parallel=true`). A later event, or a
+  replay, waits until the delivery in front of it has succeeded or used up its
+  attempts. With the receiver down and the default schedule that can be an hour: use
+  a short `PSP_RETRY_SCHEDULE` in tests, or a manual clock.
+- Requests carry `Content-Type: application/json` and `User-Agent: psp-sandbox/<version>`.
+
+Without `PSP_CALLBACK_URL` and without `callback_url` on the payment, events are
+recorded but not delivered, and the deliveries list stays empty. The sandbox warns
+about it at startup.
 
 Every attempt is recorded: request headers and body, response status, response body
 (first 4 KB), latency, error. Visible in the UI and at
