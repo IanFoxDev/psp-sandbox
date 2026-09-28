@@ -1,0 +1,26 @@
+name: Feature request
+description: A change to the API, control API, UI or PHP client that is not a new failure scenario
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: For a new provider behavior to reproduce, use the "Scenario request" template instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The test or workflow you are writing and where the sandbox gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like the sandbox to do
+      description: Endpoint, parameter, environment variable or client method. A curl or PHP snippet helps.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: How you handle it today, if at all.
