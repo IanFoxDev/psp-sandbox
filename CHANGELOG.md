@@ -7,6 +7,8 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-28
+
 ### Added
 
 - `psp-sandbox healthcheck` checks `/healthz` of the running server and exits 0 or 1.
@@ -82,5 +84,6 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IanFoxDev/psp-sandbox/releases/tag/v0.1.0
