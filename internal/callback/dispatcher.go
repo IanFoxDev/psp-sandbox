@@ -311,12 +311,22 @@ func (d *Dispatcher) process(ctx context.Context, j *job) {
 }
 
 // deliver makes attempts on the retry schedule until one succeeds.
+//
+// Each attempt is due a retry delay after the previous one was due plus the
+// wall time that attempt took. With the real clock this is "delay after the
+// previous attempt finished". With a manual clock, time does not move during
+// an attempt, so one large Advance releases every retry that falls within it
+// instead of one retry per Advance.
 func (d *Dispatcher) deliver(ctx context.Context, del *Delivery, j *job, first bool) {
+	due := d.opts.Clock.Now()
 	for n, delay := range d.opts.Retry {
-		if err := clock.Sleep(ctx, d.opts.Clock, d.withJitter(delay)); err != nil {
+		due = due.Add(d.withJitter(delay))
+		if err := clock.Sleep(ctx, d.opts.Clock, due.Sub(d.opts.Clock.Now())); err != nil {
 			return
 		}
+		started := time.Now()
 		ok := d.attempt(ctx, del, n+1)
+		due = due.Add(time.Since(started))
 		if first {
 			j.firstDone()
 		}

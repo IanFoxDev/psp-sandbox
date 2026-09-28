@@ -199,9 +199,12 @@ The answer is `{"payment": {...}, "event": {...}}`. Refund events cannot be forc
 ### Clock
 
 With `PSP_CLOCK=manual` the sandbox clock starts at the wall-clock time of startup and
-moves only on `POST /_sandbox/clock/advance`. Status changes, delayed callbacks and
-retries that fall due are applied before the call answers, so a `GET` right after it
-sees the new status. Callbacks themselves are sent in the background.
+moves only on `POST /_sandbox/clock/advance`. Status changes that fall due are applied
+before the call answers, so a `GET` right after it sees the new status. Callbacks,
+delayed callbacks and retries that fall due are sent in the background right after,
+one after another: one advance of an hour runs every retry scheduled within that
+hour. Wait for the deliveries (`waitForDeliveries()` in the PHP client) instead of
+reading them right after the call.
 
 Without a manual clock the call returns `409 clock_not_manual`. Reset does not move the
 clock back.

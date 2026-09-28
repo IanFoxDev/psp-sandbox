@@ -164,6 +164,22 @@ func TestRetriesOnScheduleWithManualClock(t *testing.T) {
 	}
 }
 
+func TestOneAdvanceRunsEveryDueRetry(t *testing.T) {
+	rc := newReceiver(t, func(int, *http.Request) int { return http.StatusInternalServerError })
+	m := clock.NewManual(start)
+	d := newDispatcher(t, m, 0, 5*time.Second, 30*time.Second, time.Hour)
+
+	d.Send(event("evt_1", "pay_1"), rc.URL, Plan{})
+	rc.wait(t, 1)
+	waitTimers(t, m, 1)
+
+	m.Advance(2 * time.Hour)
+	dels := waitStatus(t, d, "pay_1", StatusFailed)
+	if n := len(dels[0].Attempts); n != 4 {
+		t.Fatalf("attempts = %d, want 4", n)
+	}
+}
+
 func TestFailedAfterLastAttempt(t *testing.T) {
 	rc := newReceiver(t, func(int, *http.Request) int { return http.StatusServiceUnavailable })
 	d := newDispatcher(t, clock.Real{}, 0, time.Millisecond)
