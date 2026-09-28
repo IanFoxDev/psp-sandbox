@@ -6,11 +6,11 @@ recreated for every test run.
 ## Layout
 
 ```
-cmd/psp-sandbox/        main: config, wiring, HTTP server, graceful shutdown
-internal/config/        env and flag parsing into a Config struct
+cmd/psp-sandbox/        main: config, wiring, HTTP server, graceful shutdown, healthcheck
+internal/config/        PSP_* environment variables into a Config struct
 internal/clock/         Clock interface: real time or manual (advanced by the control API)
 internal/payment/       domain: Payment, Refund, statuses, allowed transitions
-internal/ids/            prefixed ids (pay_, evt_, ...), reproducible with PSP_SEED
+internal/ids/           prefixed ids (pay_, evt_, ...), reproducible with PSP_SEED
 internal/store/         in-memory storage for payments, refunds, events, idempotency keys
 internal/scenario/      Scenario interface, catalog, header parsing, rules file
 internal/signing/       Standard Webhooks signer
@@ -35,12 +35,13 @@ POST /v1/payments
   -> scenario: header > rule > default, parse params
   -> payment: create in `pending`, save
   -> scenario.OnCreate(ctx) decides:
-       - what to answer and when (normal, delayed, 5xx, connection reset)
+       - what to answer and when (normal, delayed, after the first callback,
+         connection reset)
        - which events to schedule and at what offsets
   -> engine applies status transitions at their time on the sandbox clock
   -> each transition emits an event -> callback dispatcher
-  -> dispatcher asks scenario.Deliveries(event) how to send it
-       (once, N copies, parallel, delayed, bad signature, dropped)
+  -> dispatcher asks scenario.Deliver(event) how to send it
+       (once, N copies, sequential or parallel, delayed, dropped)
   -> signer -> HTTP POST -> delivery log
 ```
 
@@ -64,6 +65,7 @@ delivered). Most scenarios override only one of them.
 - **PHP client in the same repository.** Scenario names and the signing scheme change
   together with the server. See [ADR 0003](adr/0003-php-client-in-monorepo.md).
 - **In-memory state.** Tests need a clean sandbox, not durability. A persistent store
-  can be added behind the `store` interfaces if someone needs a long-running instance.
+  would need an interface extracted from `store.Store`; nobody has needed a
+  long-running instance so far.
 - **Manual clock.** Scenarios with delays of hours (chargebacks) are tested without
   waiting: the test advances the clock.
