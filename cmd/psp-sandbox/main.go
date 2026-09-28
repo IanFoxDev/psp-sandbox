@@ -3,8 +3,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,10 +19,14 @@ import (
 var version = "dev"
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	cfg, err := config.FromEnv()
 	if err != nil {
 		slog.Error("invalid configuration", "err", err)
-		os.Exit(2)
+		return 2
 	}
 
 	log := newLogger(cfg.LogFormat)
@@ -30,12 +34,19 @@ func main() {
 	a, err := app.New(cfg, log, version)
 	if err != nil {
 		log.Error("invalid configuration", "err", err)
-		os.Exit(2)
+		return 2
 	}
 	defer a.Close()
 
+	// Listen before logging, so a busy port or a bad PSP_ADDR is a failed
+	// start with a non-zero exit code, not a clean exit.
+	ln, err := net.Listen("tcp", cfg.Addr)
+	if err != nil {
+		log.Error("cannot listen", "addr", cfg.Addr, "err", err)
+		return 1
+	}
+
 	srv := &http.Server{
-		Addr:              cfg.Addr,
 		Handler:           a.Handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -43,21 +54,26 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	served := make(chan error, 1)
 	go func() {
-		log.Info("psp-sandbox listening", "addr", cfg.Addr, "version", version, "manual_clock", cfg.ManualClock)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server stopped", "err", err)
-			stop()
-		}
+		served <- srv.Serve(ln)
 	}()
+	log.Info("psp-sandbox listening", "addr", ln.Addr().String(), "version", version, "manual_clock", cfg.ManualClock)
 
-	<-ctx.Done()
+	select {
+	case err := <-served:
+		log.Error("server stopped", "err", err)
+		return 1
+	case <-ctx.Done():
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error("shutdown", "err", err)
+		return 1
 	}
+	return 0
 }
 
 func newLogger(format string) *slog.Logger {

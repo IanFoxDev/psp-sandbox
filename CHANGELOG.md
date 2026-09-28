@@ -14,6 +14,8 @@ such changes are marked **BREAKING**.
 
 ### Fixed
 
+- The server exits with code 1 when it cannot listen (busy port, bad `PSP_ADDR`).
+  It used to log "listening" and exit with 0.
 - PHP client: removed `Scenario` cases the server does not implement yet
   (`OutOfOrder`, `AckIgnored`, `InvalidSignature`, `ServerErrorThenSuccess`,
   `AmountMismatch`, `ChargebackAfter`). Every request with them failed with
