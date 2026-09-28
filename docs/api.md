@@ -79,6 +79,7 @@ Unknown fields in the body are rejected with `400`, which catches typos early.
 ### Capture
 
 `POST /v1/payments/{id}/capture` with optional `{"amount": 700}` for partial capture.
+Without `amount` the full amount is captured; `0` or a negative amount is rejected.
 Only from `authorized`. Returns the payment.
 
 ### Cancel

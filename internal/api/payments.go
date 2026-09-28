@@ -147,16 +147,22 @@ func (a *API) listPayments(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) capture(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Amount int64 `json:"amount"`
+		// Amount is a pointer so that a missing amount (capture everything)
+		// differs from an explicit 0, which is rejected.
+		Amount *int64 `json:"amount"`
 	}
 	if !httpx.ReadJSON(w, r, &req, true) {
 		return
 	}
-	if req.Amount < 0 {
-		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "amount must be positive")
-		return
+	var amount int64
+	if req.Amount != nil {
+		if *req.Amount <= 0 {
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "amount must be positive")
+			return
+		}
+		amount = *req.Amount
 	}
-	p, err := a.engine.Capture(r.PathValue("id"), req.Amount)
+	p, err := a.engine.Capture(r.PathValue("id"), amount)
 	if err != nil {
 		httpx.WriteDomainError(w, err)
 		return

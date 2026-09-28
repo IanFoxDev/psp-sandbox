@@ -58,6 +58,13 @@ func TestManualCapture(t *testing.T) {
 	}
 	sb.WaitStatus(id, "authorized")
 
+	for _, amount := range []int{0, -1} {
+		resp := sb.Do(http.MethodPost, "/v1/payments/"+id+"/capture", map[string]any{"amount": amount})
+		if resp.Status != http.StatusBadRequest || errorCode(t, resp) != "invalid_request" {
+			t.Fatalf("capture %d: %d %s", amount, resp.Status, resp.Body)
+		}
+	}
+
 	resp := sb.Do(http.MethodPost, "/v1/payments/"+id+"/capture", map[string]any{"amount": 700})
 	if resp.Status != http.StatusOK || resp.JSON(t)["captured_amount"] != 700.0 {
 		t.Fatalf("capture: %d %s", resp.Status, resp.Body)

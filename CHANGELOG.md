@@ -20,6 +20,8 @@ such changes are marked **BREAKING**.
 
 ### Fixed
 
+- `POST /v1/payments/{id}/capture` with `"amount": 0` returns `400` instead of
+  capturing the full amount. Leave `amount` out to capture everything.
 - The server exits with code 1 when it cannot listen (busy port, bad `PSP_ADDR`).
   It used to log "listening" and exit with 0.
 - PHP client: removed `Scenario` cases the server does not implement yet
