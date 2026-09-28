@@ -75,7 +75,6 @@ func TestRoutesAnswerJSON(t *testing.T) {
 		{http.MethodPost, "/v1/payments", http.StatusCreated, ""},
 		{http.MethodGet, "/v1/nope", http.StatusNotFound, "not_found"},
 		{http.MethodPut, "/v1/payments", http.StatusMethodNotAllowed, "method_not_allowed"},
-		{http.MethodGet, "/_sandbox", http.StatusTemporaryRedirect, ""},
 	}
 	for _, c := range cases {
 		w := httptest.NewRecorder()
@@ -91,5 +90,13 @@ func TestRoutesAnswerJSON(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Error.Code != c.code {
 			t.Errorf("%s %s: body %s, want code %s", c.method, c.path, w.Body, c.code)
 		}
+	}
+
+	// The redirect to the canonical path is left to the mux. Its status is 301
+	// or 307 depending on the Go version.
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/_sandbox", nil))
+	if w.Code/100 != 3 || w.Header().Get("Location") != "/_sandbox/" {
+		t.Errorf("GET /_sandbox: %d to %q, want a redirect to /_sandbox/", w.Code, w.Header().Get("Location"))
 	}
 }
