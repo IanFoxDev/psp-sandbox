@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"time"
 )
 
@@ -180,4 +181,12 @@ func (p *Payment) SettleRefund(amount int64, at time.Time) error {
 // ReleaseRefund drops a reserved refund that failed.
 func (p *Payment) ReleaseRefund(amount int64) {
 	p.RefundPending -= amount
+}
+
+var currencyCode = regexp.MustCompile(`^[A-Z][A-Z0-9]{2,4}$`)
+
+// ValidCurrency reports whether s is a currency code the API accepts: 3 to 5
+// uppercase letters or digits, starting with a letter (EUR, JPY, USDT).
+func ValidCurrency(s string) bool {
+	return currencyCode.MatchString(s)
 }

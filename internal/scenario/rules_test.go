@@ -87,6 +87,7 @@ func TestRulesErrors(t *testing.T) {
 		{"typo in when", "rules:\n  - when: { amounts: 1 }\n    scenario: declined\n", "field amounts not found"},
 		{"typo at top", "rule:\n  - when: { amount: 1 }\n    scenario: declined\n", "field rule not found"},
 		{"zero amount", "rules:\n  - when: { amount: 0 }\n    scenario: declined\n", "amount must be positive"},
+		{"lowercase currency", "rules:\n  - when: { currency: eur }\n    scenario: declined\n", `currency must be an uppercase code such as EUR, got "eur"`},
 		{"empty prefix", "rules:\n  - when: { reference_prefix: \"\" }\n    scenario: declined\n", "reference_prefix is empty"},
 		{"second rule", "rules:\n  - when: { amount: 1 }\n    scenario: declined\n  - when: { amount: 2 }\n    scenario: nope\n", "rule 2:"},
 		{"not yaml", "rules: [\n", "yaml"},

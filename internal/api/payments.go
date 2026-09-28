@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"time"
 
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
@@ -13,8 +12,6 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
-
-var currencyCode = regexp.MustCompile(`^[A-Z][A-Z0-9]{2,4}$`)
 
 type createRequest struct {
 	Amount      int64             `json:"amount"`
@@ -113,7 +110,7 @@ func validateCreate(req createRequest) (engine.CreateRequest, string) {
 	if req.Amount <= 0 {
 		return in, "amount must be a positive integer in minor units"
 	}
-	if !currencyCode.MatchString(req.Currency) {
+	if !payment.ValidCurrency(req.Currency) {
 		return in, "currency must be an uppercase code such as EUR"
 	}
 	switch in.Capture {

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
 // Rules pick a scenario for payments created without the X-Sandbox-Scenario
@@ -100,8 +102,8 @@ func buildRule(w *fileWhen, name string, params map[string]yaml.Node, c *Catalog
 		return Rule{}, fmt.Errorf("amount must be positive, got %d", *w.Amount)
 	}
 	if w.Currency != nil {
-		if *w.Currency == "" {
-			return Rule{}, errors.New("currency is empty")
+		if !payment.ValidCurrency(*w.Currency) {
+			return Rule{}, fmt.Errorf("currency must be an uppercase code such as EUR, got %q", *w.Currency)
 		}
 		r.When.Currency = *w.Currency
 	}
