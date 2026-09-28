@@ -7,6 +7,12 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- `psp-sandbox healthcheck` checks `/healthz` of the running server and exits 0 or 1.
+  The image uses it as its Docker `HEALTHCHECK`, so compose can wait for
+  `service_healthy`.
+
 ### Changed
 
 - PHP client: `new Client()` without an HTTP client throws `MissingHttpClient`,

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -19,7 +20,39 @@ import (
 var version = "dev"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck(os.Getenv("PSP_ADDR")))
+	}
 	os.Exit(run())
+}
+
+// healthcheck asks the running server for /healthz. The image is distroless,
+// with no shell or curl, so a compose or Docker healthcheck calls the binary:
+// ["CMD", "/psp-sandbox", "healthcheck"].
+func healthcheck(addr string) int {
+	if addr == "" {
+		addr = ":8090"
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "healthcheck:", err)
+		return 1
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://" + net.JoinHostPort(host, port) + "/healthz")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "healthcheck:", err)
+		return 1
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintln(os.Stderr, "healthcheck: /healthz answered", resp.StatusCode)
+		return 1
+	}
+	return 0
 }
 
 func run() int {
