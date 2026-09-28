@@ -6,23 +6,35 @@
     "keywords": [
         "payments",
         "psp",
+        "payment-gateway",
         "testing",
+        "phpunit",
         "webhooks",
+        "standard-webhooks",
+        "idempotency",
+        "psr-18",
         "sandbox",
         "mock"
     ],
-    "homepage": "https://github.com/ianfoxdev/psp-sandbox",
+    "homepage": "https://github.com/IanFoxDev/psp-sandbox",
     "authors": [
         {
             "name": "Anatoly Pankratyev",
             "email": "ianfoxdeveloper@gmail.com"
         }
     ],
+    "support": {
+        "issues": "https://github.com/IanFoxDev/psp-sandbox/issues",
+        "source": "https://github.com/IanFoxDev/psp-sandbox/tree/master/clients/php",
+        "docs": "https://github.com/IanFoxDev/psp-sandbox/tree/master/docs"
+    },
     "require": {
-        "php": ">=8.3",
+        "php": "^8.3",
         "php-http/discovery": "^1.19",
         "psr/http-client": "^1.0",
+        "psr/http-client-implementation": "^1.0",
         "psr/http-factory": "^1.0",
+        "psr/http-factory-implementation": "^1.0",
         "psr/http-message": "^1.1 || ^2.0"
     },
     "require-dev": {
@@ -32,7 +44,9 @@
         "symfony/http-client": "^7.3"
     },
     "suggest": {
-        "phpunit/phpunit": "for the InteractsWithSandbox test trait"
+        "guzzlehttp/guzzle": "PSR-18 client and PSR-17 factories in one package",
+        "symfony/http-client": "PSR-18 client; add nyholm/psr7 for the PSR-17 factories",
+        "phpunit/phpunit": "^11.5 || ^12, for the InteractsWithSandbox trait"
     },
     "autoload": {
         "psr-4": {
