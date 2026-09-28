@@ -38,4 +38,4 @@ services:
       retries: 60
     depends_on:
       postgres: { condition: service_healthy }
-      psp: { condition: service_started }
+      psp: { condition: service_healthy }
