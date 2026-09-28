@@ -41,8 +41,14 @@ func healthcheck(addr string) int {
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		host = "127.0.0.1"
 	}
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://" + net.JoinHostPort(host, port) + "/healthz")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+net.JoinHostPort(host, port)+"/healthz", nil)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "healthcheck:", err)
+		return 1
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "healthcheck:", err)
 		return 1
@@ -73,7 +79,7 @@ func run() int {
 
 	// Listen before logging, so a busy port or a bad PSP_ADDR is a failed
 	// start with a non-zero exit code, not a clean exit.
-	ln, err := net.Listen("tcp", cfg.Addr)
+	ln, err := new(net.ListenConfig).Listen(context.Background(), "tcp", cfg.Addr)
 	if err != nil {
 		log.Error("cannot listen", "addr", cfg.Addr, "err", err)
 		return 1
