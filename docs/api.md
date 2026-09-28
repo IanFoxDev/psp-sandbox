@@ -158,12 +158,12 @@ final.
 
 | HTTP | code |
 |---|---|
-| 400 | `invalid_request` |
+| 400 | `invalid_request` (also a capture larger than the payment amount) |
 | 401 | `unauthorized` |
 | 404 | `not_found` |
 | 409 | `idempotency_conflict`, `invalid_state`, `clock_not_manual` (control API) |
 | 422 | `amount_exceeds_captured` |
-| 5xx | returned only by scenarios that ask for it |
+| 500 | `internal_error`, a bug in the sandbox: please open an issue |
 
 ## Control API
 
@@ -181,7 +181,8 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`. Moves a manual clock, see below. |
 | `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
-| `GET /healthz` | `200` | Liveness, `ok`. |
+| `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |
+| `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v0.1.0`. |
 
 ### Deliveries
 
@@ -193,7 +194,6 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
   "payment_id": "pay_01J9Z3K8Q2W5",
   "url": "http://app/api/psp/callback",
   "copy": 1,
-  "replay_of": "",
   "status": "succeeded",
   "created_at": "2026-09-25T10:00:00.2Z",
   "body": { "id": "evt_01J9Z3M4T7A1", "type": "payment.captured", "...": "..." },
@@ -212,7 +212,12 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 
 `status` is `pending`, `succeeded`, `failed` (all attempts used) or `dropped` (the
 scenario never sends it, as in `lost_callback`). `copy` counts copies of one event in
-`duplicate_callback`. `replay_of` is set on deliveries made by replay.
+`duplicate_callback`. `replay_of` (the id of the original delivery) appears only on
+deliveries made by replay.
+
+An attempt that got no answer (connection refused, timeout) has `error` instead of
+`status_code` and `response_body`. An answer outside `2xx` has both, plus `error`,
+for example `"receiver answered 500"`.
 
 ### Forced events
 
