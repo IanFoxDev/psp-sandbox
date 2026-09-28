@@ -143,17 +143,6 @@ func (s *Store) UpdateRefund(id string, fn func(p *payment.Payment, r *payment.R
 	return p.Clone(), r, nil
 }
 
-// Refund returns the refund with this id.
-func (s *Store) Refund(id string) (payment.Refund, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	r, ok := s.refunds[id]
-	if !ok {
-		return payment.Refund{}, ErrNotFound
-	}
-	return *r, nil
-}
-
 // AddEvent appends an event to the history of its payment.
 func (s *Store) AddEvent(e payment.Event) {
 	s.mu.Lock()

@@ -226,17 +226,6 @@ func (d *Dispatcher) Deliveries(paymentID string) []Delivery {
 	return out
 }
 
-// Delivery returns one delivery.
-func (d *Dispatcher) Delivery(id string) (Delivery, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	del, ok := d.deliveries[id]
-	if !ok {
-		return Delivery{}, ErrNotFound
-	}
-	return del.clone(), nil
-}
-
 // Reset stops all pending deliveries and forgets the log.
 func (d *Dispatcher) Reset() {
 	d.mu.Lock()
