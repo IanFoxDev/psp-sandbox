@@ -12,6 +12,9 @@ such changes are marked **BREAKING**.
 - Scenario `chargeback_after`: the payment is captured, `chargeback.opened` comes
   `delay` later (24h by default) and `chargeback.closed` `close_after` after that, as
   lost or won. With `PSP_CLOCK=manual` a test gets there in two clock advances.
+- Scenario `server_error_then_success`: the first create calls of a request answer
+  `503` (or `500`, `502`, `504`) with code `server_error` and create nothing, then a
+  retry with the same `Idempotency-Key` creates exactly one payment.
 
 ## [0.1.1] - 2026-09-28
 

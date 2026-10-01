@@ -62,8 +62,8 @@ are not implemented yet: planned ones are next in line, later ones are ideas.
 | planned | `out_of_order` | none | Events for the payment are buffered and delivered in reverse order (e.g. `refund.succeeded` before `payment.captured`). |
 | planned | `ack_ignored` | `times` = 2 | The sandbox treats your `2xx` as a failure and retries `times` more times. |
 | planned | `invalid_signature` | `mode` = `wrong_secret` \| `stale_timestamp` \| `missing` | The callback signature is wrong in the chosen way. Your handler must reject it. |
-| planned | `server_error_then_success` | `failures` = 1, `status` = 503 | The first `failures` create calls with the same `Idempotency-Key` return `status` without creating anything. The next one succeeds. |
 | planned | `amount_mismatch` | `delta` = -1 | Captured amount is `amount + delta`. The callback carries the captured amount. |
+| v0.2 | `server_error_then_success` | `failures` = 1 (up to 10), `status` = 503 \| 500 \| 502 \| 504 | The first `failures` create calls with the same `Idempotency-Key` answer `status` with code `server_error` and create nothing. The next one succeeds, and later calls with the key get its stored answer. Without a key, a call with the same body and scenario header counts as a retry. |
 | v0.2 | `chargeback_after` | `delay` = 24h, `outcome` = `lost` \| `won`, `close_after` = 720h | The payment is captured, `chargeback.opened` follows `delay` later and `chargeback.closed` with the outcome `close_after` after that. Both delays count from creation on the sandbox clock: with manual capture, capture before `delay` runs out or no chargeback comes. Use with `PSP_CLOCK=manual`. |
 | later | `partial_capture_only` | `max` | Capture is limited to `max` regardless of the requested amount. |
 | later | `status_regression` | none | A `failed` callback arrives after `captured` for the same payment. |
