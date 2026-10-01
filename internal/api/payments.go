@@ -55,7 +55,7 @@ func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	body, _ := json.Marshal(created.Payment)
 	body = append(body, '\n')
-	commitResponse(r, http.StatusCreated, body)
+	commitResponse(r, http.StatusCreated, body, created.Payment.ID)
 
 	if !a.hold(w, r, created) {
 		return
@@ -209,7 +209,7 @@ func (a *API) refund(w http.ResponseWriter, r *http.Request) {
 	}
 	body, _ := json.Marshal(ref)
 	body = append(body, '\n')
-	commitResponse(r, http.StatusCreated, body)
+	commitResponse(r, http.StatusCreated, body, ref.PaymentID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write(body)

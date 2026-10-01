@@ -8,7 +8,9 @@ package store
 
 import (
 	"errors"
+	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
@@ -47,6 +49,36 @@ func (s *Store) reset() {
 	s.refunds = map[string]*payment.Refund{}
 	s.events = map[string][]payment.Event{}
 	s.idem = map[string]*idemEntry{}
+}
+
+// DropByReferencePrefix removes the payments whose reference starts with
+// prefix, with their refunds, events and idempotency keys, and returns their ids.
+func (s *Store) DropByReferencePrefix(prefix string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dropped := map[string]bool{}
+	order := s.order[:0]
+	for _, id := range s.order {
+		if strings.HasPrefix(s.payments[id].Reference, prefix) {
+			dropped[id] = true
+			delete(s.payments, id)
+			delete(s.events, id)
+			continue
+		}
+		order = append(order, id)
+	}
+	s.order = order
+	for id, r := range s.refunds {
+		if dropped[r.PaymentID] {
+			delete(s.refunds, id)
+		}
+	}
+	for key, e := range s.idem {
+		if dropped[e.paymentID] {
+			delete(s.idem, key)
+		}
+	}
+	return slices.Sorted(maps.Keys(dropped))
 }
 
 // AddPayment stores a new payment.

@@ -74,11 +74,12 @@ type commit struct {
 }
 
 // commitResponse stores the answer for the request's Idempotency-Key, if any.
-func commitResponse(r *http.Request, status int, body []byte) {
+// paymentID is the payment the answer is about.
+func commitResponse(r *http.Request, status int, body []byte, paymentID string) {
 	c, ok := r.Context().Value(idemKey{}).(*commit)
 	if !ok || c.done {
 		return
 	}
-	c.store.FinishIdempotent(c.scope, store.Response{Status: status, Body: body})
+	c.store.FinishIdempotent(c.scope, store.Response{Status: status, Body: body}, paymentID)
 	c.done = true
 }

@@ -154,7 +154,7 @@ func TestIdempotency(t *testing.T) {
 	if _, err := s.BeginIdempotent("k", "f1"); !errors.Is(err, ErrIdempotencyInProgress) {
 		t.Fatalf("while running: err = %v", err)
 	}
-	s.FinishIdempotent("k", Response{Status: 201, Body: []byte("{}")})
+	s.FinishIdempotent("k", Response{Status: 201, Body: []byte("{}")}, "pay_1")
 	r, err := s.BeginIdempotent("k", "f1")
 	if err != nil || r == nil || r.Status != 201 {
 		t.Fatalf("replay: %v %v", r, err)

@@ -19,6 +19,9 @@ type idemEntry struct {
 	fingerprint string
 	done        bool
 	resp        Response
+	// paymentID is the payment the answer belongs to, so that dropping the
+	// payment drops the key too.
+	paymentID string
 }
 
 // BeginIdempotent claims key for a request identified by fingerprint (a hash
@@ -47,12 +50,14 @@ func (s *Store) BeginIdempotent(key, fingerprint string) (*Response, error) {
 }
 
 // FinishIdempotent stores the response for a key claimed with BeginIdempotent.
-func (s *Store) FinishIdempotent(key string, r Response) {
+// paymentID is the payment the response is about.
+func (s *Store) FinishIdempotent(key string, r Response, paymentID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e, ok := s.idem[key]; ok {
 		e.done = true
 		e.resp = r
+		e.paymentID = paymentID
 	}
 }
 
