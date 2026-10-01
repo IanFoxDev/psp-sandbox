@@ -20,6 +20,12 @@ jobs:
         with:
           version: v2.4.0
 
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: make openapi-lint
+
   image:
     runs-on: ubuntu-latest
     steps:

@@ -6,8 +6,9 @@ else
 GO =
 endif
 LINT_IMAGE ?= golangci/golangci-lint:v2.4.0
+REDOCLY_IMAGE ?= redocly/cli:2.57.0
 
-.PHONY: test fmt vet lint build run php-test
+.PHONY: test fmt vet lint openapi-lint build run php-test
 
 test:
 	$(GO) go test -race ./...
@@ -20,6 +21,10 @@ vet:
 
 lint:
 	docker run --rm -v $(CURDIR):/src -w /src $(LINT_IMAGE) golangci-lint run
+
+# Rules in redocly.yaml. Routes and response fields are checked by go test.
+openapi-lint:
+	docker run --rm -v $(CURDIR):/spec -w /spec $(REDOCLY_IMAGE) lint docs/openapi.yaml
 
 build:
 	docker build -t psp-sandbox:dev .

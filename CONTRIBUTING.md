@@ -5,13 +5,14 @@
 You need Docker. Go and PHP are optional: without a local Go toolchain the Makefile runs Go inside a container.
 
 ```bash
-make test      # Go tests with the race detector
-make vet       # go vet
-make fmt       # gofmt, rewrites files
-make lint      # golangci-lint, in Docker
-make build     # Docker image psp-sandbox:dev
-make run       # build and start the sandbox on :8090 with docker compose
-make php-test  # PHP client tests (needs PHP 8.3+ and Composer)
+make test          # Go tests with the race detector
+make vet           # go vet
+make fmt           # gofmt, rewrites files
+make lint          # golangci-lint, in Docker
+make openapi-lint  # lint docs/openapi.yaml, in Docker
+make build         # Docker image psp-sandbox:dev
+make run           # build and start the sandbox on :8090 with docker compose
+make php-test      # PHP client tests (needs PHP 8.3+ and Composer)
 ```
 
 The PHP integration tests run only when `PSP_SANDBOX_URL` points at a running sandbox.
@@ -41,6 +42,13 @@ describe:
 4. Add a row to `docs/scenarios.md`, to the scenario table in `README.md`, and a case
    to `clients/php/src/Scenario.php`.
 5. Add a line to `CHANGELOG.md` under `[Unreleased]`.
+
+## Changing the API
+
+`docs/openapi.yaml` describes every route except the web UI. `go test` fails when a
+route is registered but not in the spec, or the other way round, and when the server
+sends a field that a schema does not describe. Update the spec in the same pull request
+as the code, along with `docs/api.md`.
 
 ## Pull requests
 
