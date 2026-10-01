@@ -47,8 +47,8 @@ To change the rules, restart the container.
 
 ## Catalog
 
-Status in the first column: **v0.1** means available since 0.1.0; later versions are
-planned and not implemented yet.
+The first column is the version a scenario first shipped in. **planned** and **later**
+are not implemented yet: planned ones are next in line, later ones are ideas.
 
 | | Scenario | Parameters | Behavior |
 |---|---|---|---|
@@ -59,12 +59,12 @@ planned and not implemented yet.
 | v0.1 | `timeout_then_success` | `delay` = 35s, `mode` = `hold` \| `reset` | `hold`: the create response is delayed by `delay`. `reset`: the connection is closed without a response. The payment is created and captured either way, callback included. A retry with the same `Idempotency-Key` returns the payment. |
 | v0.1 | `lost_callback` | none | No callbacks for this payment. Status is only visible through `GET`. |
 | v0.1 | `delayed_callback` | `delay` = 10s | Callbacks are held for `delay` after the status change. |
-| v0.2 | `out_of_order` | none | Events for the payment are buffered and delivered in reverse order (e.g. `refund.succeeded` before `payment.captured`). |
-| v0.2 | `ack_ignored` | `times` = 2 | The sandbox treats your `2xx` as a failure and retries `times` more times. |
-| v0.2 | `invalid_signature` | `mode` = `wrong_secret` \| `stale_timestamp` \| `missing` | The callback signature is wrong in the chosen way. Your handler must reject it. |
-| v0.2 | `server_error_then_success` | `failures` = 1, `status` = 503 | The first `failures` create calls with the same `Idempotency-Key` return `status` without creating anything. The next one succeeds. |
-| v0.2 | `amount_mismatch` | `delta` = -1 | Captured amount is `amount + delta`. The callback carries the captured amount. |
-| v0.2 | `chargeback_after` | `delay` = 24h, `outcome` = `lost` \| `won` | After capture, `chargeback.opened` fires after `delay`, then `chargeback.closed` with the outcome. Use with `PSP_CLOCK=manual`. |
+| planned | `out_of_order` | none | Events for the payment are buffered and delivered in reverse order (e.g. `refund.succeeded` before `payment.captured`). |
+| planned | `ack_ignored` | `times` = 2 | The sandbox treats your `2xx` as a failure and retries `times` more times. |
+| planned | `invalid_signature` | `mode` = `wrong_secret` \| `stale_timestamp` \| `missing` | The callback signature is wrong in the chosen way. Your handler must reject it. |
+| planned | `server_error_then_success` | `failures` = 1, `status` = 503 | The first `failures` create calls with the same `Idempotency-Key` return `status` without creating anything. The next one succeeds. |
+| planned | `amount_mismatch` | `delta` = -1 | Captured amount is `amount + delta`. The callback carries the captured amount. |
+| v0.2 | `chargeback_after` | `delay` = 24h, `outcome` = `lost` \| `won`, `close_after` = 720h | The payment is captured, `chargeback.opened` follows `delay` later and `chargeback.closed` with the outcome `close_after` after that. Both delays count from creation on the sandbox clock: with manual capture, capture before `delay` runs out or no chargeback comes. Use with `PSP_CLOCK=manual`. |
 | later | `partial_capture_only` | `max` | Capture is limited to `max` regardless of the requested amount. |
 | later | `status_regression` | none | A `failed` callback arrives after `captured` for the same payment. |
 

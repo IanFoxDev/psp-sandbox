@@ -7,6 +7,12 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- Scenario `chargeback_after`: the payment is captured, `chargeback.opened` comes
+  `delay` later (24h by default) and `chargeback.closed` `close_after` after that, as
+  lost or won. With `PSP_CLOCK=manual` a test gets there in two clock advances.
+
 ## [0.1.1] - 2026-09-28
 
 ### Added

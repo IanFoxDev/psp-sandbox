@@ -67,12 +67,12 @@ what was sent, what your app answered, how long it took.
 | `timeout_then_success` | The create request hangs past your client timeout, the payment still succeeds. | v0.1 |
 | `lost_callback` | No callback is ever sent. Only polling tells you the result. | v0.1 |
 | `delayed_callback` | The callback arrives after a configurable delay. | v0.1 |
+| `chargeback_after` | A chargeback is opened some time after capture and closed as lost or won. | v0.2 |
 | `out_of_order` | Events for one payment arrive in reverse order. | planned |
 | `ack_ignored` | Your app returns 200, the sandbox retries anyway. | planned |
 | `invalid_signature` | The callback carries a wrong signature. | planned |
 | `server_error_then_success` | The first N create requests return 5xx, the next one succeeds. | planned |
 | `amount_mismatch` | The captured amount differs from the requested one. | planned |
-| `chargeback_after` | A chargeback is opened some time after capture. Until then, `POST /_sandbox/payments/{id}/events` opens one by hand. | planned |
 
 Parameters and exact behavior: [docs/scenarios.md](docs/scenarios.md).
 
