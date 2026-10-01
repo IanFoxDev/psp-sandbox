@@ -181,10 +181,30 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `POST /_sandbox/deliveries/{id}/replay` | `202` | Send the event of a delivery again, as a new delivery. |
 | `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
 | `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`, up to 10 years. Moves a manual clock and answers with its state. |
-| `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. |
+| `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. With `{"reference_prefix": "test-42-"}` only the payments whose reference starts with it, see [Parallel tests](#parallel-tests). |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |
 | `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v0.1.0`. |
+
+### Parallel tests
+
+A plain reset drops everything, including payments of tests that run at the same time
+against the same sandbox (paratest, several CI jobs on one container). For those:
+
+- Give every test its own reference prefix, such as `test-<test id>-`, and use it on
+  every payment the test creates (`test-42-order-1`).
+- Reset with that prefix at the start of the test:
+  `POST /_sandbox/reset` with `{"reference_prefix": "test-42-"}`. It drops the matching
+  payments with their events, refunds, deliveries, pending status changes and the
+  idempotency keys of their create and refund calls. Other payments carry on.
+- Wait by payment id (`GET /_sandbox/payments/{id}/deliveries`), never by counting
+  everything the sandbox sent.
+
+What a prefix reset keeps: the manual clock is shared, so a test that advances it moves
+time for every test, and keys of calls refused by `server_error_then_success` are only
+cleared by a full reset. Tests that use `PSP_CLOCK=manual` need a sandbox of their own.
+
+An empty prefix is rejected with `400`; send no body to reset everything.
 
 ### Deliveries
 

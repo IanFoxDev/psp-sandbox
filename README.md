@@ -161,7 +161,8 @@ Details: [docs/callbacks.md](docs/callbacks.md).
 
 Tests talk to `/_sandbox/*` to inspect and drive the sandbox: list deliveries for a
 payment, replay a callback, open a chargeback by hand, move the clock forward, reset
-state between tests. See [docs/api.md](docs/api.md#control-api).
+state between tests (all of it, or one test's payments by reference prefix, so tests
+can run in parallel). See [docs/api.md](docs/api.md#control-api).
 
 ## Documentation
 

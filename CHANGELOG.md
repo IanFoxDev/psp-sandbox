@@ -18,6 +18,10 @@ such changes are marked **BREAKING**.
 - Scenario `out_of_order`: events of a payment that come within `window` (2s by
   default) of the first one are held and delivered newest first, so a refund can
   arrive before the capture it refunds.
+- `POST /_sandbox/reset` takes `{"reference_prefix": "..."}` and drops only the payments
+  of one test, so tests that share a sandbox can run in parallel. PHP client:
+  `reset($referencePrefix)` and `resetSandbox($referencePrefix)`. See "Parallel tests"
+  in `docs/api.md`.
 
 ## [0.1.1] - 2026-09-28
 
