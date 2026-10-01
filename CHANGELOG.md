@@ -22,6 +22,8 @@ such changes are marked **BREAKING**.
   of one test, so tests that share a sandbox can run in parallel. PHP client:
   `reset($referencePrefix)` and `resetSandbox($referencePrefix)`. See "Parallel tests"
   in `docs/api.md`.
+- `docs/openapi.yaml`: OpenAPI 3.1 for the provider and control APIs and the callbacks.
+  A Go test keeps it in step with the routes and response fields, and CI lints it.
 
 ## [0.1.1] - 2026-09-28
 

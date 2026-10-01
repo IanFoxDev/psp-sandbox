@@ -166,7 +166,7 @@ can run in parallel). See [docs/api.md](docs/api.md#control-api).
 
 ## Documentation
 
-- [API](docs/api.md)
+- [API](docs/api.md), and the same as [OpenAPI 3.1](docs/openapi.yaml)
 - [Scenarios](docs/scenarios.md)
 - [Callbacks and signing](docs/callbacks.md)
 - [Architecture](docs/architecture.md)

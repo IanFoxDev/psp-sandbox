@@ -6,6 +6,9 @@ The sandbox exposes two APIs on the same port (default `8090`):
   acquirer.
 - **Control API** (`/_sandbox/*`): what your tests call to inspect and drive the sandbox.
 
+Both are also described in [openapi.yaml](openapi.yaml) (OpenAPI 3.1, callbacks under
+`webhooks`), for generating a client in another language or loading into an API tool.
+
 All bodies are JSON. Amounts are integers in minor units (`1000` EUR means 10.00 EUR).
 Currency is an uppercase code of 3 to 5 characters (`EUR`, `JPY`, `USDT`). The sandbox
 does not convert or round amounts, so the minor unit is whatever your application uses.
