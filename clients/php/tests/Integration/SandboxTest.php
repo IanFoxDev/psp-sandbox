@@ -117,6 +117,25 @@ final class SandboxTest extends TestCase
         self::assertSame(['payment.captured', 'chargeback.opened', 'chargeback.closed'], $types);
     }
 
+    public function testServerErrorThenSuccess(): void
+    {
+        $c = $this->sandbox();
+        $create = static fn () => $c->createPayment(1000, 'EUR', reference: 'order-5',
+            scenario: Scenario::ServerErrorThenSuccess, idempotencyKey: 'order-5');
+
+        try {
+            $create();
+            self::fail('the first call was not refused');
+        } catch (ApiError $e) {
+            self::assertSame(503, $e->status);
+            self::assertSame('server_error', $e->errorCode);
+        }
+        self::assertSame([], $c->payments('order-5'));
+
+        $p = $create();
+        self::assertSame([$p->id], array_map(static fn ($p) => $p->id, $c->payments('order-5')));
+    }
+
     public function testClock(): void
     {
         $clock = $this->sandbox()->clock();

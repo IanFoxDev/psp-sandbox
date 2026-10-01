@@ -21,6 +21,7 @@ enum Scenario: string
     case LostCallback = 'lost_callback';
     case DelayedCallback = 'delayed_callback';
     case ChargebackAfter = 'chargeback_after';
+    case ServerErrorThenSuccess = 'server_error_then_success';
 
     public const string HEADER = 'X-Sandbox-Scenario';
 
