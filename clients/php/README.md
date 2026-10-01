@@ -197,6 +197,22 @@ final class CallbackTest extends TestCase
 can come from `phpunit.xml` or a Symfony `.env.test`. Override `sandbox()` to build the
 client differently.
 
+With paratest or several CI jobs on one sandbox, `resetSandbox()` would wipe the
+payments of tests running next to this one. Give each test its own reference prefix
+and reset only that:
+
+```php
+protected function setUp(): void
+{
+    $this->prefix = 'test-' . bin2hex(random_bytes(4)) . '-';
+    $this->resetSandbox($this->prefix);
+}
+
+// and create payments with reference: $this->prefix . 'order-1'
+```
+
+Tests that move a manual clock need a sandbox of their own: the clock is shared.
+
 ## Verify callbacks
 
 The sandbox signs callbacks with [Standard Webhooks](https://www.standardwebhooks.com/):
