@@ -136,6 +136,19 @@ final class SandboxTest extends TestCase
         self::assertSame([$p->id], array_map(static fn ($p) => $p->id, $c->payments('order-5')));
     }
 
+    public function testOutOfOrder(): void
+    {
+        $c = $this->sandbox();
+        $p = $c->createPayment(1000, 'EUR', scenario: Scenario::OutOfOrder, scenarioParams: ['window' => '1s']);
+        $this->waitForPaymentStatus($p->id, PaymentStatus::Captured);
+        $c->forceEvent($p->id, 'chargeback.opened');
+
+        [$captured, $chargeback] = $this->waitForDeliveries($p->id, count: 2);
+        self::assertSame('payment.captured', $captured->eventType);
+        self::assertSame('chargeback.opened', $chargeback->eventType);
+        self::assertLessThan($captured->attempts[0]->at, $chargeback->attempts[0]->at);
+    }
+
     public function testClock(): void
     {
         $clock = $this->sandbox()->clock();
