@@ -11,4 +11,4 @@ ianfoxdeveloper@gmail.com.
 ## Supported versions
 
 Fixes go into the latest release only. Until 1.0 that is the latest `0.x` tag; the
-`0.1` image tag always points to the newest `0.1.x`.
+`0.2` image tag always points to the newest `0.2.x`.

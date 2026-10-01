@@ -187,7 +187,7 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. With `{"reference_prefix": "test-42-"}` only the payments whose reference starts with it, see [Parallel tests](#parallel-tests). |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |
-| `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v0.1.0`. |
+| `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v0.2.0`. |
 
 ### Parallel tests
 

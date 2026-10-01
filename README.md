@@ -16,7 +16,7 @@ vendor sandbox, so this code usually ships untested.
 psp-sandbox is a single Docker container that speaks a simple PSP-style API, sends signed
 callbacks to your app, and lets each test pick a failure scenario by name.
 
-> Status: v0.1. Until 1.0, a minor version may change the API; such changes are marked
+> Status: v0.2. Until 1.0, a minor version may change the API; such changes are marked
 > **BREAKING** in the [CHANGELOG](CHANGELOG.md).
 
 ## Quick start
@@ -25,7 +25,7 @@ callbacks to your app, and lets each test pick a failure scenario by name.
 # compose.yaml in your project
 services:
   psp:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.1
+    image: ghcr.io/ianfoxdev/psp-sandbox:0.2
     ports: ["8090:8090"]
     environment:
       PSP_CALLBACK_URL: http://app/api/psp/callback

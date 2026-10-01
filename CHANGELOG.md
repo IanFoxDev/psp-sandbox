@@ -7,6 +7,11 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
+Three more failure scenarios, tests in parallel on one sandbox, and an OpenAPI
+description for clients in other languages. Nothing from 0.1 changes.
+
 ### Added
 
 - Scenario `chargeback_after`: the payment is captured, `chargeback.opened` comes
@@ -102,6 +107,7 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IanFoxDev/psp-sandbox/releases/tag/v0.1.0
