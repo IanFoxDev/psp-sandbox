@@ -106,6 +106,17 @@ final class SandboxTest extends TestCase
         }
     }
 
+    public function testChargebackAfter(): void
+    {
+        $c = $this->sandbox();
+        $p = $c->createPayment(1000, 'EUR', scenario: Scenario::ChargebackAfter,
+            scenarioParams: ['delay' => '50ms', 'close_after' => '50ms', 'outcome' => 'won']);
+
+        $this->waitForPaymentStatus($p->id, PaymentStatus::ChargebackWon);
+        $types = array_map(static fn ($e) => $e->type, $c->events($p->id));
+        self::assertSame(['payment.captured', 'chargeback.opened', 'chargeback.closed'], $types);
+    }
+
     public function testClock(): void
     {
         $clock = $this->sandbox()->clock();

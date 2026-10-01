@@ -20,6 +20,7 @@ enum Scenario: string
     case TimeoutThenSuccess = 'timeout_then_success';
     case LostCallback = 'lost_callback';
     case DelayedCallback = 'delayed_callback';
+    case ChargebackAfter = 'chargeback_after';
 
     public const string HEADER = 'X-Sandbox-Scenario';
 
