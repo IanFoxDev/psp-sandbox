@@ -447,3 +447,34 @@ func TestBatchReset(t *testing.T) {
 		t.Fatal("held event was sent after reset")
 	}
 }
+
+// Dropping a payment stops its retries and forgets its log; the other payment
+// is not touched.
+func TestDropPayments(t *testing.T) {
+	rc := newReceiver(t, func(_ int, r *http.Request) int {
+		if r.Header.Get("webhook-id") == "evt_a" {
+			return http.StatusInternalServerError
+		}
+		return http.StatusOK
+	})
+	m := clock.NewManual(start)
+	d := newDispatcher(t, m, 0, time.Minute)
+
+	d.Send(event("evt_a", "pay_a"), rc.URL, Plan{})
+	d.Send(event("evt_b", "pay_b"), rc.URL, Plan{})
+	rc.wait(t, 2)
+	waitTimers(t, m, 1)
+
+	d.Drop([]string{"pay_a"})
+	m.Advance(2 * time.Minute)
+	time.Sleep(20 * time.Millisecond)
+	if rc.count() != 2 {
+		t.Fatal("dropped payment was retried")
+	}
+	if dels := d.Deliveries("pay_a"); len(dels) != 0 {
+		t.Fatalf("deliveries of the dropped payment: %+v", dels)
+	}
+	if dels := d.Deliveries("pay_b"); len(dels) != 1 || dels[0].Status != StatusSucceeded {
+		t.Fatalf("deliveries of the other payment: %+v", dels)
+	}
+}

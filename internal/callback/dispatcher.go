@@ -71,7 +71,10 @@ type generation struct {
 }
 
 type queue struct {
-	jobs []*job
+	// ctx ends with the generation, or earlier when the payment is dropped.
+	ctx    context.Context
+	cancel context.CancelFunc
+	jobs   []*job
 }
 
 // batch is a set of held jobs of one payment, see Plan.Batch.
@@ -249,6 +252,7 @@ func (d *Dispatcher) enqueueLocked(paymentID string, j *job) {
 	q, running := d.queues[paymentID]
 	if !running {
 		q = &queue{}
+		q.ctx, q.cancel = context.WithCancel(d.gen.ctx)
 		d.queues[paymentID] = q
 		d.gen.wg.Add(1)
 		go d.run(d.gen, paymentID, q)
@@ -265,6 +269,29 @@ func (d *Dispatcher) Deliveries(paymentID string) []Delivery {
 		out = append(out, d.deliveries[id].clone())
 	}
 	return out
+}
+
+// Drop stops the deliveries of these payments, held ones included, and
+// forgets their log. Other payments are not touched.
+func (d *Dispatcher) Drop(paymentIDs []string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, id := range paymentIDs {
+		if q, ok := d.queues[id]; ok {
+			q.cancel()
+			delete(d.queues, id)
+		}
+		if b, ok := d.batches[id]; ok {
+			for _, j := range b.jobs {
+				j.firstDone()
+			}
+			delete(d.batches, id)
+		}
+		for _, did := range d.byPayment[id] {
+			delete(d.deliveries, did)
+		}
+		delete(d.byPayment, id)
+	}
 }
 
 // Reset stops all pending deliveries and forgets the log.
@@ -297,10 +324,11 @@ func (d *Dispatcher) run(g *generation, paymentID string, q *queue) {
 	defer g.wg.Done()
 	for {
 		d.mu.Lock()
-		if len(q.jobs) == 0 || g.ctx.Err() != nil {
+		if len(q.jobs) == 0 || q.ctx.Err() != nil {
 			if d.queues[paymentID] == q {
 				delete(d.queues, paymentID)
 			}
+			q.cancel()
 			for _, j := range q.jobs {
 				j.firstDone()
 			}
@@ -311,7 +339,7 @@ func (d *Dispatcher) run(g *generation, paymentID string, q *queue) {
 		q.jobs = q.jobs[1:]
 		d.mu.Unlock()
 
-		d.process(g.ctx, j)
+		d.process(q.ctx, j)
 	}
 }
 
