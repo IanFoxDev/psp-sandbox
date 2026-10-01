@@ -210,6 +210,53 @@ func TestReset(t *testing.T) {
 	}
 }
 
+// A reset by prefix drops one test's payments, pending callbacks and keys and
+// leaves another test's alone.
+func TestResetPrefix(t *testing.T) {
+	sb := sandboxtest.New(t)
+	create := func(ref, key string) sandboxtest.Response {
+		body := map[string]any{"amount": 1000, "currency": "EUR", "reference": ref}
+		return sb.Do(http.MethodPost, "/v1/payments", body, api.HeaderIdempotencyKey, key, scenario.Header, "delayed_callback; delay=200ms")
+	}
+	dropped := create("test-a-1", "k-a").JSON(t)["id"].(string)
+	kept := create("test-b-1", "k-b").JSON(t)["id"].(string)
+
+	resp := sb.Do(http.MethodPost, "/_sandbox/reset", map[string]any{"reference_prefix": "test-a-"})
+	if resp.Status != http.StatusNoContent {
+		t.Fatalf("reset: %d %s", resp.Status, resp.Body)
+	}
+	if resp := sb.Do(http.MethodGet, "/v1/payments/"+dropped, nil); resp.Status != http.StatusNotFound {
+		t.Fatalf("dropped payment: %d", resp.Status)
+	}
+	if list := sb.Do(http.MethodGet, "/v1/payments", nil).JSON(t)["data"].([]any); len(list) != 1 {
+		t.Fatalf("payments after reset: %v", list)
+	}
+
+	if cb := sb.Receiver.Wait(1)[0]; cb.Data["id"] != kept {
+		t.Fatalf("callback for %v, want %s", cb.Data["id"], kept)
+	}
+	sb.Receiver.Quiet(1, 300*time.Millisecond)
+	if dels := waitDeliveries(t, sb, kept, "succeeded"); len(dels) != 1 {
+		t.Fatalf("deliveries of the kept payment: %v", dels)
+	}
+
+	if again := create("test-a-1", "k-a"); again.Status != http.StatusCreated || again.Header.Get(api.HeaderReplayed) != "" {
+		t.Fatalf("key of a dropped payment: %d %v", again.Status, again.Header)
+	}
+	if again := create("test-b-1", "k-b"); again.Header.Get(api.HeaderReplayed) != "true" {
+		t.Fatalf("key of a kept payment was dropped: %d %v", again.Status, again.Header)
+	}
+}
+
+func TestResetEmptyPrefix(t *testing.T) {
+	sb := sandboxtest.New(t)
+	for _, body := range []any{map[string]any{"reference_prefix": ""}, map[string]any{"prefix": "a"}} {
+		if resp := sb.Do(http.MethodPost, "/_sandbox/reset", body); resp.Status != http.StatusBadRequest {
+			t.Fatalf("reset with %v: %d %s", body, resp.Status, resp.Body)
+		}
+	}
+}
+
 func waitDeliveries(t *testing.T, sb *sandboxtest.Sandbox, paymentID, status string) []any {
 	t.Helper()
 	deadline := time.Now().Add(sandboxtest.Wait)

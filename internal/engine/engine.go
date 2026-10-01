@@ -404,6 +404,20 @@ func (e *Engine) settleRefund(gen uint64, refundID string) {
 	e.emitLocked(p, typ, r)
 }
 
+// ResetPrefix drops the payments whose reference starts with prefix, with
+// their events, refunds, idempotency keys and deliveries. Their pending
+// status changes find no payment and are skipped. Other payments go on.
+func (e *Engine) ResetPrefix(prefix string) {
+	e.mu.Lock()
+	ids := e.store.DropByReferencePrefix(prefix)
+	for _, id := range ids {
+		delete(e.scenarios, id)
+	}
+	e.mu.Unlock()
+	e.dispatcher.Drop(ids)
+	e.log.Info("payments reset", "reference_prefix", prefix, "count", len(ids))
+}
+
 // Reset drops all state: payments, pending status changes and deliveries.
 func (e *Engine) Reset() {
 	e.mu.Lock()

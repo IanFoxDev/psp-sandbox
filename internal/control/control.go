@@ -142,7 +142,23 @@ func (c *Control) advance(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, c.state())
 }
 
-func (c *Control) reset(w http.ResponseWriter, _ *http.Request) {
-	c.engine.Reset()
+// reset drops everything, or with {"reference_prefix": "..."} only the
+// payments of one test, so tests that share a sandbox can run in parallel.
+func (c *Control) reset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ReferencePrefix *string `json:"reference_prefix"`
+	}
+	if !httpx.ReadJSON(w, r, &req, true) {
+		return
+	}
+	switch {
+	case req.ReferencePrefix == nil:
+		c.engine.Reset()
+	case *req.ReferencePrefix == "":
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "reference_prefix must not be empty; send no body to reset everything")
+		return
+	default:
+		c.engine.ResetPrefix(*req.ReferencePrefix)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
