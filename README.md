@@ -92,8 +92,11 @@ rules:
 ## PHP client
 
 ```bash
-composer require --dev ianfoxdev/psp-sandbox-php
+composer require --dev ianfoxdev/psp-sandbox-php guzzlehttp/guzzle
 ```
+
+Guzzle is only an example: any PSR-18 client already in the project works, Symfony
+HttpClient with `nyholm/psr7` included.
 
 ```php
 use PspSandbox\Client;
@@ -110,11 +113,29 @@ $payment = $sandbox->createPayment(1000, 'EUR', reference: 'order-42',
 $deliveries = $sandbox->waitForDeliveries($payment->id, count: 3);
 ```
 
-Any PSR-18 HTTP client works. A PHPUnit trait (`InteractsWithSandbox`) adds
-`waitForDeliveries()` and `waitForPaymentStatus()` that fail the test on timeout.
+A PHPUnit trait (`InteractsWithSandbox`) adds `waitForDeliveries()` and
+`waitForPaymentStatus()` that fail the test on timeout.
+
+Tests that run in parallel against one sandbox (paratest, several CI jobs) give each
+test a reference prefix and reset only that, instead of the whole sandbox:
+
+```php
+$prefix = 'test-' . bin2hex(random_bytes(4)) . '-';
+$this->resetSandbox($prefix);
+$payment = $this->sandbox()->createPayment(1000, 'EUR', reference: $prefix . 'order-1');
+```
+
+Details and limits: [Parallel tests](docs/api.md#parallel-tests).
 
 The PHP package lives in [clients/php](clients/php) and is published as a separate
 read-only repository.
+
+## Other languages
+
+The API is plain JSON over HTTP, so a test in Go, Node or Python can call it with any
+HTTP client. [docs/openapi.yaml](docs/openapi.yaml) describes both APIs and the callback
+(OpenAPI 3.1), for generating a client or loading into Postman or Bruno. Callbacks use
+Standard Webhooks signing, which has verifier libraries for most languages.
 
 ## Examples
 
