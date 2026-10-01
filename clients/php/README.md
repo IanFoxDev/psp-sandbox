@@ -135,7 +135,7 @@ you would in production.
 | `forceEvent($paymentId, 'chargeback.opened')` | Make the provider send an event now. Takes `reason` for `payment.failed`, `outcome` for `chargeback.closed`. |
 | `replay($deliveryId)` | Send a delivered event again, same event id. |
 | `clock()`, `advanceClock($seconds)` | Read or move the clock of a sandbox started with `PSP_CLOCK=manual`. |
-| `reset()` | Drop all payments, events and deliveries. |
+| `reset()` | Drop all payments, events and deliveries. `reset('test-42-')` drops only payments whose reference starts with the prefix. |
 | `waitForDeliveries($paymentId, $count = 1, $timeoutSeconds = 5.0)` | Poll until `$count` deliveries have finished. |
 | `waitForStatus($paymentId, $status, $timeoutSeconds = 5.0)` | Poll until the payment has the status. |
 

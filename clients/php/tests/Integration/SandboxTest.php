@@ -149,6 +149,18 @@ final class SandboxTest extends TestCase
         self::assertLessThan($captured->attempts[0]->at, $chargeback->attempts[0]->at);
     }
 
+    public function testResetByPrefix(): void
+    {
+        $c = $this->sandbox();
+        $mine = $c->createPayment(1000, 'EUR', reference: 'test-a-1');
+        $other = $c->createPayment(1000, 'EUR', reference: 'test-b-1');
+
+        $this->resetSandbox('test-a-');
+        self::assertSame([], $c->payments('test-a-1'));
+        self::assertSame($other->id, $c->payment($other->id)->id);
+        self::assertNotSame($mine->id, $other->id);
+    }
+
     public function testClock(): void
     {
         $clock = $this->sandbox()->clock();

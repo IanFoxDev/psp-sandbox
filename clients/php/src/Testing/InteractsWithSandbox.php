@@ -33,9 +33,9 @@ trait InteractsWithSandbox
         return $this->sandboxClient;
     }
 
-    protected function resetSandbox(): void
+    protected function resetSandbox(?string $referencePrefix = null): void
     {
-        $this->sandbox()->reset();
+        $this->sandbox()->reset($referencePrefix);
     }
 
     /**

@@ -215,6 +215,7 @@ final class ClientTest extends TestCase
             ->queue(202, self::delivery('pending') + ['replay_of' => 'dlv_0'])
             ->queue(200, ['now' => '2026-09-25T11:00:00Z', 'manual' => true])
             ->queue(200, ['now' => '2026-09-25T12:00:00Z', 'manual' => true])
+            ->queue(204)
             ->queue(204);
         $c = $this->client();
 
@@ -232,6 +233,10 @@ final class ClientTest extends TestCase
 
         $c->reset();
         self::assertSame('http://sandbox:8090/_sandbox/reset', (string) $this->http->last()->getUri());
+        self::assertSame('', (string) $this->http->last()->getBody());
+
+        $c->reset('test-42-');
+        self::assertSame(['reference_prefix' => 'test-42-'], $this->http->lastBody());
     }
 
     public function testApiError(): void

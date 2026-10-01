@@ -263,12 +263,15 @@ final class Client
     /**
      * Drops all payments, events, deliveries, pending status changes and idempotency keys.
      *
+     * With $referencePrefix only the payments whose reference starts with it are dropped,
+     * so tests that share one sandbox can run in parallel, each with its own prefix.
+     *
      * @throws ApiError
      * @throws ClientExceptionInterface
      */
-    public function reset(): void
+    public function reset(?string $referencePrefix = null): void
     {
-        $this->send('POST', '/_sandbox/reset');
+        $this->send('POST', '/_sandbox/reset', $referencePrefix === null ? null : ['reference_prefix' => $referencePrefix]);
     }
 
     // Wait helpers: callbacks and status changes are asynchronous.
