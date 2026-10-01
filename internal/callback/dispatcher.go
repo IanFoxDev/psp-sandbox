@@ -57,6 +57,7 @@ type Dispatcher struct {
 	mu         sync.Mutex
 	gen        *generation
 	queues     map[string]*queue
+	batches    map[string]*batch
 	deliveries map[string]*Delivery
 	byPayment  map[string][]string
 	rng        *rand.Rand
@@ -70,6 +71,12 @@ type generation struct {
 }
 
 type queue struct {
+	jobs []*job
+}
+
+// batch is a set of held jobs of one payment, see Plan.Batch.
+type batch struct {
+	gen  *generation
 	jobs []*job
 }
 
@@ -115,6 +122,7 @@ func (d *Dispatcher) clear() {
 	ctx, cancel := context.WithCancel(context.Background())
 	d.gen = &generation{ctx: ctx, cancel: cancel}
 	d.queues = map[string]*queue{}
+	d.batches = map[string]*batch{}
 	d.deliveries = map[string]*Delivery{}
 	d.byPayment = map[string][]string{}
 }
@@ -166,8 +174,41 @@ func (d *Dispatcher) Send(e payment.Event, url string, plan Plan) <-chan struct{
 		return j.first
 	}
 
+	if plan.Batch > 0 {
+		d.holdLocked(e.PaymentID, j, plan.Batch)
+		return j.first
+	}
 	d.enqueueLocked(e.PaymentID, j)
 	return j.first
+}
+
+// holdLocked adds a job to the payment's open batch, opening one with a
+// window if there is none. d.mu must be held.
+func (d *Dispatcher) holdLocked(paymentID string, j *job, window time.Duration) {
+	b, ok := d.batches[paymentID]
+	if !ok {
+		b = &batch{gen: d.gen}
+		d.batches[paymentID] = b
+		d.opts.Clock.AfterFunc(window, func() { d.release(paymentID, b) })
+	}
+	b.jobs = append(b.jobs, j)
+}
+
+// release queues the jobs of a batch, last held first. A batch dropped by a
+// reset or a closed dispatcher only lets its waiters go.
+func (d *Dispatcher) release(paymentID string, b *batch) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.batches[paymentID] != b || b.gen.ctx.Err() != nil {
+		for _, j := range b.jobs {
+			j.firstDone()
+		}
+		return
+	}
+	delete(d.batches, paymentID)
+	for i := len(b.jobs) - 1; i >= 0; i-- {
+		d.enqueueLocked(paymentID, b.jobs[i])
+	}
 }
 
 // Replay sends the event of an earlier delivery again, as a new delivery with
@@ -229,10 +270,15 @@ func (d *Dispatcher) Deliveries(paymentID string) []Delivery {
 // Reset stops all pending deliveries and forgets the log.
 func (d *Dispatcher) Reset() {
 	d.mu.Lock()
-	old := d.gen
+	old, held := d.gen, d.batches
 	d.clear()
 	d.mu.Unlock()
 
+	for _, b := range held {
+		for _, j := range b.jobs {
+			j.firstDone()
+		}
+	}
 	old.cancel()
 	old.wg.Wait()
 }

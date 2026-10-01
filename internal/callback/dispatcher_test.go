@@ -396,3 +396,54 @@ func contains(s []string, v string) bool {
 	}
 	return false
 }
+
+// Held events of one payment go out newest first once the window closes. An
+// event after that opens a new batch.
+func TestBatchReversed(t *testing.T) {
+	rc := newReceiver(t, nil)
+	m := clock.NewManual(start)
+	d := newDispatcher(t, m)
+	plan := Plan{Batch: 10 * time.Second}
+
+	d.Send(event("evt_1", "pay_1"), rc.URL, plan)
+	d.Send(event("evt_2", "pay_1"), rc.URL, plan)
+	d.Send(event("evt_3", "pay_1"), rc.URL, plan)
+	d.Send(event("evt_x", "pay_2"), rc.URL, Plan{})
+	if got := rc.wait(t, 1); got[0].eventID != "evt_x" {
+		t.Fatalf("first callback %s, want evt_x from another payment", got[0].eventID)
+	}
+
+	m.Advance(10 * time.Second)
+	got := rc.wait(t, 4)
+	if got[1].eventID != "evt_3" || got[2].eventID != "evt_2" || got[3].eventID != "evt_1" {
+		t.Fatalf("order %s %s %s, want evt_3 evt_2 evt_1", got[1].eventID, got[2].eventID, got[3].eventID)
+	}
+
+	d.Send(event("evt_4", "pay_1"), rc.URL, plan)
+	time.Sleep(20 * time.Millisecond)
+	if rc.count() != 4 {
+		t.Fatal("event after the window was sent without its own window")
+	}
+	m.Advance(10 * time.Second)
+	rc.wait(t, 5)
+}
+
+// A reset drops held events and lets their waiters go at once.
+func TestBatchReset(t *testing.T) {
+	rc := newReceiver(t, nil)
+	m := clock.NewManual(start)
+	d := newDispatcher(t, m)
+
+	first := d.Send(event("evt_1", "pay_1"), rc.URL, Plan{Batch: time.Minute})
+	d.Reset()
+	select {
+	case <-first:
+	case <-time.After(time.Second):
+		t.Fatal("waiter of a held event was not released by reset")
+	}
+	m.Advance(time.Minute)
+	time.Sleep(20 * time.Millisecond)
+	if rc.count() != 0 {
+		t.Fatal("held event was sent after reset")
+	}
+}

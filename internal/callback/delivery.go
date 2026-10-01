@@ -19,6 +19,10 @@ type Plan struct {
 	Delay time.Duration
 	// Drop records the delivery but never sends it.
 	Drop bool
+	// Batch holds the event with the other events of the payment that come
+	// within Batch of the first held one, then queues them all in reverse order.
+	// The first held event's Batch sets the window.
+	Batch time.Duration
 }
 
 // Status of a delivery.
