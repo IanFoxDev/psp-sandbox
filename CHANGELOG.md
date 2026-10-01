@@ -15,6 +15,9 @@ such changes are marked **BREAKING**.
 - Scenario `server_error_then_success`: the first create calls of a request answer
   `503` (or `500`, `502`, `504`) with code `server_error` and create nothing, then a
   retry with the same `Idempotency-Key` creates exactly one payment.
+- Scenario `out_of_order`: events of a payment that come within `window` (2s by
+  default) of the first one are held and delivered newest first, so a refund can
+  arrive before the capture it refunds.
 
 ## [0.1.1] - 2026-09-28
 

@@ -44,7 +44,8 @@ webhook-signature: v1,<base64(HMAC-SHA256(secret, id + "." + timestamp + "." + b
 - After the last attempt the delivery is marked `failed`. It can still be replayed
   through `POST /_sandbox/deliveries/{id}/replay`.
 - Deliveries for one payment are sent in event order, one at a time, unless a scenario
-  says otherwise (`duplicate_callback` with `parallel=true`). A later event, or a
+  says otherwise (`duplicate_callback` with `parallel=true`, or `out_of_order`, which
+  reverses the order and lists deliveries in event order with later attempt times). A later event, or a
   replay, waits until the delivery in front of it has succeeded or used up its
   attempts. With the receiver down and the default schedule that can be an hour: use
   a short `PSP_RETRY_SCHEDULE` in tests, or a manual clock.
