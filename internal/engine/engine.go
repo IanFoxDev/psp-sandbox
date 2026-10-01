@@ -22,6 +22,18 @@ import (
 // ErrInvalidScenario means the requested scenario or its parameters are wrong.
 var ErrInvalidScenario = errors.New("invalid scenario")
 
+// RefusedError is a create call that the scenario answered with a server error.
+// Nothing was stored.
+type RefusedError struct {
+	Status   int
+	Scenario string
+	Attempt  int
+}
+
+func (e *RefusedError) Error() string {
+	return fmt.Sprintf("scenario %s: call %d refused with %d", e.Scenario, e.Attempt, e.Status)
+}
+
 // Config holds the engine settings.
 type Config struct {
 	// ProcessingDelay is the usual time from create to the first status change.
@@ -49,6 +61,8 @@ type Engine struct {
 	mu        sync.Mutex
 	gen       uint64
 	scenarios map[string]scenario.Scenario
+	// refused counts refused create calls by CreateRequest.RetryKey.
+	refused map[string]int
 }
 
 // Deps are the collaborators of an Engine.
@@ -78,6 +92,7 @@ func New(cfg Config, d Deps) (*Engine, error) {
 		ids:        d.IDs,
 		log:        d.Log,
 		scenarios:  map[string]scenario.Scenario{},
+		refused:    map[string]int{},
 	}, nil
 }
 
@@ -91,6 +106,10 @@ type CreateRequest struct {
 	Metadata    map[string]string
 	// Scenario is nil when the request did not name one.
 	Scenario *scenario.Spec
+	// RetryKey tells retries of one request apart from new requests, for
+	// scenarios that refuse the first calls. The API sets it from the
+	// Idempotency-Key, or from the request itself when there is none.
+	RetryKey string
 }
 
 // Created is the result of Create.
@@ -117,6 +136,11 @@ func (e *Engine) Create(req CreateRequest) (Created, error) {
 	sc, err := e.catalog.Build(spec)
 	if err != nil {
 		return Created{}, fmt.Errorf("%w: %w", ErrInvalidScenario, err)
+	}
+	if rf, ok := sc.(scenario.Refuser); ok {
+		if err := e.refuse(rf, sc.Name(), req.RetryKey); err != nil {
+			return Created{}, err
+		}
 	}
 
 	now := e.now()
@@ -153,6 +177,22 @@ func (e *Engine) Create(req CreateRequest) (Created, error) {
 	e.runSteps(gen, p.ID, plan.Steps, 0, first)
 
 	return Created{Payment: p, Response: plan.Response, FirstCallback: first}, nil
+}
+
+// refuse counts the call and returns a RefusedError if the scenario refuses
+// it. The count is dropped once a call gets through.
+func (e *Engine) refuse(rf scenario.Refuser, name, key string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	n := e.refused[key]
+	status, refused := rf.Refuse(n)
+	if !refused {
+		delete(e.refused, key)
+		return nil
+	}
+	e.refused[key] = n + 1
+	e.log.Info("create refused by scenario", "scenario", name, "attempt", n+1, "status", status)
+	return &RefusedError{Status: status, Scenario: name, Attempt: n + 1}
 }
 
 // runSteps applies steps[i:] in order at their offsets from creation. Steps
@@ -369,6 +409,7 @@ func (e *Engine) Reset() {
 	e.mu.Lock()
 	e.gen++
 	e.scenarios = map[string]scenario.Scenario{}
+	e.refused = map[string]int{}
 	e.store.Reset()
 	e.mu.Unlock()
 	e.dispatcher.Reset()

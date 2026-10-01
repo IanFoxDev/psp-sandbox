@@ -165,6 +165,7 @@ final.
 | 409 | `idempotency_conflict`, `invalid_state`, `clock_not_manual` (control API) |
 | 422 | `amount_exceeds_captured` |
 | 500 | `internal_error`, a bug in the sandbox: please open an issue |
+| 5xx | `server_error`, only from the `server_error_then_success` scenario. Nothing was created. |
 
 ## Control API
 

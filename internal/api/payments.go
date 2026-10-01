@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -41,7 +42,13 @@ func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 		in.Scenario = &spec
 	}
 
+	in.RetryKey = retryKey(r, req)
+
 	created, err := a.engine.Create(in)
+	if refused := (*engine.RefusedError)(nil); errors.As(err, &refused) {
+		httpx.WriteError(w, refused.Status, "server_error", refused.Error())
+		return
+	}
 	if err != nil {
 		httpx.WriteDomainError(w, err)
 		return
@@ -56,6 +63,17 @@ func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write(body)
+}
+
+// retryKey names the request for scenarios that refuse the first calls: the
+// Idempotency-Key if there is one, otherwise the request itself, so a client
+// that retries without a key still gets through.
+func retryKey(r *http.Request, req createRequest) string {
+	if key := r.Header.Get(HeaderIdempotencyKey); key != "" {
+		return "key " + key
+	}
+	body, _ := json.Marshal(req)
+	return "body " + fingerprint(body, []byte(r.Header.Get(scenario.Header)))
 }
 
 // hold applies the scenario's response plan. It returns false if the

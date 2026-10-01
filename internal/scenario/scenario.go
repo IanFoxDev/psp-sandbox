@@ -22,6 +22,15 @@ type Scenario interface {
 	Deliver(e payment.Event) callback.Plan
 }
 
+// Refuser is implemented by scenarios that answer some create calls with a
+// server error before any payment exists.
+type Refuser interface {
+	// Refuse is called before the payment is stored, with the number of earlier
+	// refused calls of the same request. It returns the HTTP status to answer
+	// with, and whether to refuse at all.
+	Refuse(attempt int) (status int, refused bool)
+}
+
 // CreateContext is what a scenario knows when a payment is created.
 type CreateContext struct {
 	Payment payment.Payment

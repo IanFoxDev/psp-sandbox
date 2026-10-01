@@ -33,6 +33,7 @@ examples/               Laravel and Symfony apps wired to the sandbox
 POST /v1/payments
   -> api: validate, check Idempotency-Key in store
   -> scenario: header > rule > default, parse params
+  -> scenario.Refuse(attempt), if the scenario has it: answer 5xx, save nothing
   -> payment: create in `pending`, save
   -> scenario.OnCreate(ctx) decides:
        - what to answer and when (normal, delayed, after the first callback,
@@ -53,7 +54,8 @@ callback is always wall-clock time: receivers compare it with their own clock.
 
 The `Scenario` interface has two hooks: one for the synchronous part (the HTTP answer and
 the schedule of status changes) and one for the asynchronous part (how each event is
-delivered). Most scenarios override only one of them.
+delivered). Most scenarios override only one of them. A scenario that fails the create
+call itself, before any payment exists, also implements `Refuser`.
 
 ## Why these choices
 
