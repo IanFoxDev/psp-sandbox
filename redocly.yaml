@@ -1,0 +1,8 @@
+# Lint settings for docs/openapi.yaml (make openapi-lint).
+extends:
+  - recommended
+rules:
+  # The sandbox runs next to the tests, localhost is the real address.
+  no-server-example.com: off
+  # Health, version, catalog and clock reads have no client errors to describe.
+  operation-4xx-response: off

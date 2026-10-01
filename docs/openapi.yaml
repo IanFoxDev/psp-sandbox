@@ -1,0 +1,834 @@
+openapi: 3.1.0
+info:
+  title: psp-sandbox
+  version: 0.2.0
+  summary: A fake payment provider for tests and CI that fails the way real providers do.
+  description: |
+    Two APIs on one port. The provider API (`/v1`) is what your application calls.
+    The control API (`/_sandbox`) is what your tests call to inspect and drive the
+    sandbox. Callbacks to your application are described under `webhooks`.
+
+    Prose documentation with the details: docs/api.md, docs/scenarios.md and
+    docs/callbacks.md in the repository.
+  license:
+    name: MIT
+    identifier: MIT
+externalDocs:
+  url: https://github.com/IanFoxDev/psp-sandbox/blob/master/docs/api.md
+servers:
+  - url: http://localhost:8090
+tags:
+  - name: provider
+    description: Provider API, called by your application.
+  - name: control
+    description: Control API, called by your tests. Not authenticated.
+  - name: service
+    description: Health and version.
+
+paths:
+  /v1/payments:
+    post:
+      tags: [provider]
+      operationId: createPayment
+      summary: Create a payment
+      description: |
+        The payment is created as `pending` and moves on asynchronously, with a
+        callback per status change, unless the scenario says otherwise. The scenario
+        comes from the `X-Sandbox-Scenario` header, else from the rules file, else
+        `PSP_DEFAULT_SCENARIO`.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayment'
+      responses:
+        '201':
+          description: Created. May be held or never sent, depending on the scenario.
+          headers:
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        5XX:
+          $ref: '#/components/responses/ServerError'
+    get:
+      tags: [provider]
+      operationId: listPayments
+      summary: List payments, oldest first
+      security:
+        - bearer: []
+      parameters:
+        - name: reference
+          in: query
+          required: false
+          description: Only payments with exactly this reference.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/payments/{id}:
+    get:
+      tags: [provider]
+      operationId: getPayment
+      summary: Get a payment
+      security:
+        - bearer: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/payments/{id}/capture:
+    post:
+      tags: [provider]
+      operationId: capturePayment
+      summary: Capture an authorized payment
+      description: Without `amount` the full amount is captured.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+      responses:
+        '200':
+          description: The captured payment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/payments/{id}/cancel:
+    post:
+      tags: [provider]
+      operationId: cancelPayment
+      summary: Cancel a pending or authorized payment
+      security:
+        - bearer: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: The canceled payment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/payments/{id}/refunds:
+    post:
+      tags: [provider]
+      operationId: refundPayment
+      summary: Refund a captured payment
+      description: |
+        The refund settles after `PSP_PROCESSING_DELAY` with a `refund.succeeded`
+        callback, or `refund.failed` if the payment changed status meanwhile.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount]
+              properties:
+                amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                reference:
+                  type: string
+      responses:
+        '201':
+          description: Created, `pending`.
+          headers:
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: The amount is more than what is left to refund.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /_sandbox/scenarios:
+    get:
+      tags: [control]
+      operationId: listScenarios
+      security: []
+      summary: Scenario catalog
+      responses:
+        '200':
+          description: Every scenario with its parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScenarioDefinition'
+
+  /_sandbox/payments/{id}/deliveries:
+    get:
+      tags: [control]
+      operationId: listDeliveries
+      security: []
+      summary: Callback deliveries of a payment, with every attempt
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Deliveries in the order they were queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Delivery'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /_sandbox/payments/{id}/events:
+    get:
+      tags: [control]
+      operationId: listEvents
+      security: []
+      summary: Events of a payment in the order they happened
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Events.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [control]
+      operationId: forceEvent
+      security: []
+      summary: Make the provider send an event now
+      description: |
+        The payment moves to the status the event stands for and the event goes
+        through the payment's scenario. The usual status rules apply.
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [payment.authorized, payment.captured, payment.failed, payment.canceled, chargeback.opened, chargeback.closed]
+                reason:
+                  description: Decline reason for `payment.failed`.
+                  type: string
+                  default: do_not_honor
+                outcome:
+                  description: Outcome for `chargeback.closed`.
+                  type: string
+                  enum: [lost, won]
+                  default: lost
+      responses:
+        '201':
+          description: The payment after the change and the event.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [payment, event]
+                properties:
+                  payment:
+                    $ref: '#/components/schemas/Payment'
+                  event:
+                    $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /_sandbox/deliveries/{id}/replay:
+    post:
+      tags: [control]
+      operationId: replayDelivery
+      security: []
+      summary: Send the event of a delivery again, as a new delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            examples: [dlv_7QK2M9XH4B1C]
+      responses:
+        '202':
+          description: The new delivery, `pending`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /_sandbox/clock:
+    get:
+      tags: [control]
+      operationId: getClock
+      security: []
+      summary: Sandbox time
+      responses:
+        '200':
+          description: The clock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clock'
+
+  /_sandbox/clock/advance:
+    post:
+      tags: [control]
+      operationId: advanceClock
+      security: []
+      summary: Move a manual clock forward
+      description: |
+        Status changes that fall due are applied before the answer. Callbacks that
+        fall due are sent in the background right after.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [seconds]
+              properties:
+                seconds:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 315360000
+      responses:
+        '200':
+          description: The clock after the move.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clock'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '409':
+          description: The clock is not manual (`clock_not_manual`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /_sandbox/reset:
+    post:
+      tags: [control]
+      operationId: reset
+      security: []
+      summary: Drop state
+      description: |
+        Without a body: drop all payments, events, deliveries, pending status changes
+        and idempotency keys. With `reference_prefix`: only the payments whose
+        reference starts with it, for tests that share a sandbox.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reference_prefix:
+                  type: string
+                  minLength: 1
+      responses:
+        '204':
+          description: Done.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+
+  /healthz:
+    get:
+      tags: [service]
+      operationId: health
+      security: []
+      summary: Liveness
+      responses:
+        '200':
+          description: The server is up.
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: "ok\n"
+
+  /version:
+    get:
+      tags: [service]
+      operationId: version
+      security: []
+      summary: Version of the running sandbox
+      responses:
+        '200':
+          description: Version, such as `v0.2.0`.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+webhooks:
+  event:
+    post:
+      operationId: receiveEvent
+      security: []
+      summary: Callback to your application
+      description: |
+        Sent to `callback_url` of the payment or `PSP_CALLBACK_URL`, signed by the
+        Standard Webhooks scheme. Answer with any 2xx within 10 seconds, or the
+        delivery is retried on `PSP_RETRY_SCHEDULE`. The event id stays the same
+        across retries and duplicates.
+      parameters:
+        - name: webhook-id
+          in: header
+          required: true
+          description: The event id.
+          schema:
+            type: string
+        - name: webhook-timestamp
+          in: header
+          required: true
+          description: Unix seconds, wall-clock time.
+          schema:
+            type: string
+        - name: webhook-signature
+          in: header
+          required: true
+          description: '`v1,` and base64 of HMAC-SHA256 over `id.timestamp.body`.'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        2XX:
+          description: Accepted. Anything else, or no answer, is a failed attempt.
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Any key is accepted unless `PSP_API_KEY` is set.
+
+  parameters:
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        examples: [pay_01J9Z3K8Q2W5]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Same key and same request return the stored answer. Same key with another
+        request, or while the first is running, is `409 idempotency_conflict`. Error
+        answers are not stored.
+      schema:
+        type: string
+    Scenario:
+      name: X-Sandbox-Scenario
+      in: header
+      required: false
+      description: Scenario for this payment, `name; param=value`. See `GET /_sandbox/scenarios`.
+      schema:
+        type: string
+        examples: ['duplicate_callback; times=3; parallel=true']
+
+  headers:
+    IdempotentReplayed:
+      description: '`true` when the answer was stored for an earlier request with the same key.'
+      schema:
+        type: string
+        const: 'true'
+
+  responses:
+    InvalidRequest:
+      description: Invalid body, parameter or scenario (`invalid_request`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or wrong API key (`unauthorized`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Unknown id (`not_found`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: '`invalid_state` or `idempotency_conflict`.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: |
+        `server_error` from the `server_error_then_success` scenario, nothing was
+        created; or `internal_error`, a bug in the sandbox.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Amount:
+      description: Integer in minor units.
+      type: integer
+      format: int64
+      minimum: 0
+    Currency:
+      type: string
+      pattern: '^[A-Z][A-Z0-9]{2,4}$'
+      examples: [EUR, JPY, USDT]
+    Time:
+      type: string
+      format: date-time
+
+    CreatePayment:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+        currency:
+          $ref: '#/components/schemas/Currency'
+        reference:
+          description: Your id. Not required to be unique.
+          type: string
+        capture:
+          type: string
+          enum: [auto, manual]
+          default: auto
+        callback_url:
+          type: string
+          format: uri
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    PaymentStatus:
+      type: string
+      enum: [pending, authorized, captured, partially_refunded, refunded, failed, canceled, disputed, chargeback_lost, chargeback_won]
+
+    Payment:
+      type: object
+      required: [id, status, amount, captured_amount, refunded_amount, currency, capture, scenario, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          examples: [pay_01J9Z3K8Q2W5]
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        amount:
+          $ref: '#/components/schemas/Amount'
+        captured_amount:
+          $ref: '#/components/schemas/Amount'
+        refunded_amount:
+          $ref: '#/components/schemas/Amount'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        reference:
+          description: Left out when empty.
+          type: string
+        capture:
+          type: string
+          enum: [auto, manual]
+        scenario:
+          type: string
+        failure_reason:
+          description: Only on failed payments.
+          type: string
+          enum: [insufficient_funds, do_not_honor, expired_card, fraud_suspected]
+        created_at:
+          $ref: '#/components/schemas/Time'
+        updated_at:
+          $ref: '#/components/schemas/Time'
+        metadata:
+          description: Left out when empty.
+          type: object
+          additionalProperties:
+            type: string
+
+    PaymentList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+
+    Refund:
+      type: object
+      required: [id, payment_id, status, amount, currency, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          examples: [ref_01J9Z3P1B6D2]
+        payment_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, succeeded, failed]
+        amount:
+          $ref: '#/components/schemas/Amount'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        reference:
+          type: string
+        failure_reason:
+          description: Only on failed refunds, such as `payment_disputed`.
+          type: string
+        created_at:
+          $ref: '#/components/schemas/Time'
+        updated_at:
+          $ref: '#/components/schemas/Time'
+
+    Event:
+      type: object
+      required: [id, type, created_at, data]
+      properties:
+        id:
+          type: string
+          examples: [evt_01J9Z3M4T7A1]
+        type:
+          type: string
+          enum: [payment.authorized, payment.captured, payment.failed, payment.canceled, refund.succeeded, refund.failed, chargeback.opened, chargeback.closed]
+        created_at:
+          $ref: '#/components/schemas/Time'
+        data:
+          description: The payment, or the refund for `refund.*` events, as the API returns it.
+          oneOf:
+            - $ref: '#/components/schemas/Payment'
+            - $ref: '#/components/schemas/Refund'
+
+    Delivery:
+      type: object
+      required: [id, event_id, event_type, payment_id, url, copy, status, created_at, body, attempts]
+      properties:
+        id:
+          type: string
+          examples: [dlv_7QK2M9XH4B1C]
+        event_id:
+          type: string
+        event_type:
+          type: string
+        payment_id:
+          type: string
+        url:
+          type: string
+        copy:
+          description: Copy number of one event in `duplicate_callback`.
+          type: integer
+          minimum: 1
+        replay_of:
+          description: Id of the original delivery, only on replays.
+          type: string
+        status:
+          type: string
+          enum: [pending, succeeded, failed, dropped]
+        created_at:
+          $ref: '#/components/schemas/Time'
+        body:
+          $ref: '#/components/schemas/Event'
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attempt'
+
+    Attempt:
+      type: object
+      required: [n, at, request_headers, latency_ms]
+      properties:
+        n:
+          type: integer
+          minimum: 1
+        at:
+          $ref: '#/components/schemas/Time'
+        request_headers:
+          type: object
+          additionalProperties:
+            type: string
+        status_code:
+          description: Left out when there was no answer.
+          type: integer
+        response_body:
+          description: First 4 KB of the answer.
+          type: string
+        latency_ms:
+          type: integer
+        error:
+          description: No answer, or an answer outside 2xx.
+          type: string
+
+    ScenarioDefinition:
+      type: object
+      required: [name, description, params]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        params:
+          type: array
+          items:
+            type: object
+            required: [name, type, default, description]
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+                enum: [string, int, bool, duration]
+              default:
+                type: string
+              allowed:
+                type: array
+                items:
+                  type: string
+              description:
+                type: string
+
+    Clock:
+      type: object
+      required: [now, manual]
+      properties:
+        now:
+          $ref: '#/components/schemas/Time'
+        manual:
+          type: boolean
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, unauthorized, not_found, method_not_allowed, idempotency_conflict, invalid_state, clock_not_manual, amount_exceeds_captured, server_error, internal_error]
+            message:
+              type: string
