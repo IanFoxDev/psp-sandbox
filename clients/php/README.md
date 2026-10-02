@@ -123,6 +123,13 @@ you would in production.
 `Scenario::DuplicateCallback->header(['times' => 3])` returns the raw
 `X-Sandbox-Scenario` value, for when the app under test sends the header itself.
 
+With the sandbox in the stripe profile (`PSP_PROFILE=stripe`), stripe-php cannot add a
+header to a request, so the scenario goes into metadata instead:
+`Scenario::DuplicateCallback->metadata(['times' => 3])` returns
+`['sandbox_scenario' => 'duplicate_callback; times=3']`. The control API methods of this
+client (`waitForDeliveries()`, `events()`, `reset()` and the rest) work in both profiles,
+with `pi_` ids in the stripe one.
+
 ### All methods
 
 | Method | What it does |

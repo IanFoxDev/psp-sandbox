@@ -11,6 +11,8 @@ such changes are marked **BREAKING**.
 
 - `declined` takes five more reasons: `generic_decline`, `lost_card`, `stolen_card`,
   `incorrect_cvc`, `processing_error`.
+- PHP client: `Scenario::...->metadata($params)` for picking a scenario through metadata
+  in the stripe profile.
 
 ## [0.2.0] - 2026-10-01
 

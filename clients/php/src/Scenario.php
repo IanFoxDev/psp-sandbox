@@ -26,6 +26,9 @@ enum Scenario: string
 
     public const string HEADER = 'X-Sandbox-Scenario';
 
+    /** Metadata key the stripe profile reads the scenario from. */
+    public const string METADATA_KEY = 'sandbox_scenario';
+
     /**
      * Value for the X-Sandbox-Scenario header, e.g. "duplicate_callback; times=3".
      *
@@ -42,5 +45,23 @@ enum Scenario: string
         }
 
         return implode('; ', $parts);
+    }
+
+    /**
+     * Metadata that picks this scenario in the stripe profile, for SDKs that
+     * cannot add a header, e.g. stripe-php:
+     *
+     *     $stripe->paymentIntents->create([
+     *         'amount' => 1000, 'currency' => 'eur', 'confirm' => true, 'payment_method' => 'pm_card_visa',
+     *         'metadata' => ['order_id' => '42'] + Scenario::DuplicateCallback->metadata(['times' => 3]),
+     *     ]);
+     *
+     * @param array<string, scalar> $params
+     *
+     * @return array{sandbox_scenario: string}
+     */
+    public function metadata(array $params = []): array
+    {
+        return [self::METADATA_KEY => $this->header($params)];
     }
 }

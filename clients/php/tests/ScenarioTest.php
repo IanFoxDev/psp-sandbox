@@ -21,4 +21,13 @@ final class ScenarioTest extends TestCase
             Scenario::DuplicateCallback->header(['times' => 3, 'parallel' => true]),
         );
     }
+
+    public function testMetadataForTheStripeProfile(): void
+    {
+        self::assertSame(
+            ['sandbox_scenario' => 'declined; reason=expired_card'],
+            Scenario::Declined->metadata(['reason' => 'expired_card']),
+        );
+        self::assertSame(['sandbox_scenario' => 'happy_path'], Scenario::HappyPath->metadata());
+    }
 }
