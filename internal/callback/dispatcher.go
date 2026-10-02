@@ -18,7 +18,6 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/clock"
 	"github.com/ianfoxdev/psp-sandbox/internal/ids"
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
-	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 )
 
 // ErrNotFound means there is no delivery with this id.
@@ -33,10 +32,26 @@ const (
 	jitter = 0.1
 )
 
+// Signer adds the signature headers of one request.
+type Signer interface {
+	Sign(h http.Header, id string, at time.Time, body []byte)
+}
+
+// Message is one request body made from an event, with the id and type the
+// receiver sees.
+type Message struct {
+	ID   string
+	Type string
+	Body []byte
+}
+
 // Options configure a Dispatcher. Clock, Signer and IDs are required.
 type Options struct {
 	Clock  clock.Clock
-	Signer *signing.Signer
+	Signer Signer
+	// Encode turns an event into the messages sent for it, in order. Nil
+	// sends the event itself as JSON.
+	Encode func(payment.Event) ([]Message, error)
 	IDs    *ids.Generator
 	// Retry is the delay before each attempt; its length is the number of
 	// attempts. Empty means one attempt.
@@ -116,6 +131,9 @@ func New(opts Options) *Dispatcher {
 	if opts.UserAgent == "" {
 		opts.UserAgent = "psp-sandbox"
 	}
+	if opts.Encode == nil {
+		opts.Encode = encodeEvent
+	}
 	d := &Dispatcher{opts: opts, rng: opts.Rand}
 	d.clear()
 	return d
@@ -130,59 +148,79 @@ func (d *Dispatcher) clear() {
 	d.byPayment = map[string][]string{}
 }
 
-// Send queues event e for delivery to url according to plan. The returned
-// channel is closed once the first attempt of the first copy has finished
-// (or right away if the event is dropped), so a caller can wait until the
-// application has seen the callback.
+// Send queues event e for delivery to url according to plan. An event may
+// become several messages (see Options.Encode); each one is delivered with
+// the plan. The returned channel is closed once the first attempt of the
+// first copy of the first message has finished (or right away if it is
+// dropped), so a caller can wait until the application has seen the callback.
 func (d *Dispatcher) Send(e payment.Event, url string, plan Plan) <-chan struct{} {
-	j := &job{plan: plan, first: make(chan struct{})}
-
-	body, err := json.Marshal(e)
-	if err != nil {
-		d.opts.Log.Error("encode event", "event", e.ID, "err", err)
-		j.firstDone()
-		return j.first
+	msgs, err := d.opts.Encode(e)
+	if err != nil || len(msgs) == 0 {
+		if err != nil {
+			d.opts.Log.Error("encode event", "event", e.ID, "err", err)
+		}
+		done := make(chan struct{})
+		close(done)
+		return done
 	}
-
-	copies := max(plan.Copies, 1)
 	now := d.opts.Clock.Now()
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	var first <-chan struct{}
+	for i, m := range msgs {
+		j := d.sendLocked(m, e.PaymentID, url, plan, now)
+		if i == 0 {
+			first = j.first
+		}
+	}
+	return first
+}
 
+func encodeEvent(e payment.Event) ([]Message, error) {
+	body, err := json.Marshal(e)
+	if err != nil {
+		return nil, err
+	}
+	return []Message{{ID: e.ID, Type: string(e.Type), Body: body}}, nil
+}
+
+// sendLocked creates the deliveries of one message and queues or holds
+// them. d.mu must be held.
+func (d *Dispatcher) sendLocked(m Message, paymentID, url string, plan Plan, now time.Time) *job {
+	j := &job{plan: plan, first: make(chan struct{})}
+	copies := max(plan.Copies, 1)
 	j.gen = d.gen
 	j.readyAt = now.Add(plan.Delay)
 	for n := 1; n <= copies; n++ {
 		del := &Delivery{
 			ID:        d.opts.IDs.Next("dlv"),
-			EventID:   e.ID,
-			EventType: string(e.Type),
-			PaymentID: e.PaymentID,
+			EventID:   m.ID,
+			EventType: m.Type,
+			PaymentID: paymentID,
 			URL:       url,
 			Copy:      n,
 			Status:    StatusPending,
 			CreatedAt: now,
-			Body:      body,
+			Body:      m.Body,
 			Attempts:  []Attempt{},
 		}
 		if plan.Drop {
 			del.Status = StatusDropped
 		}
 		d.deliveries[del.ID] = del
-		d.byPayment[e.PaymentID] = append(d.byPayment[e.PaymentID], del.ID)
+		d.byPayment[paymentID] = append(d.byPayment[paymentID], del.ID)
 		j.deliveries = append(j.deliveries, del)
 	}
-	if plan.Drop {
+	switch {
+	case plan.Drop:
 		j.firstDone()
-		return j.first
+	case plan.Batch > 0:
+		d.holdLocked(paymentID, j, plan.Batch)
+	default:
+		d.enqueueLocked(paymentID, j)
 	}
-
-	if plan.Batch > 0 {
-		d.holdLocked(e.PaymentID, j, plan.Batch)
-		return j.first
-	}
-	d.enqueueLocked(e.PaymentID, j)
-	return j.first
+	return j
 }
 
 // holdLocked adds a job to the payment's open batch, opening one with a
