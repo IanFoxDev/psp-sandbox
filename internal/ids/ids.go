@@ -21,7 +21,13 @@ type Generator struct {
 
 // New returns a generator. An empty seed gives random ids.
 func New(seed string) *Generator {
-	return &Generator{rng: Rand(seed, "ids")}
+	return NewStream(seed, "ids")
+}
+
+// NewStream returns a generator on its own stream, so that its ids do not
+// shift the ids of New(seed) with the same seed.
+func NewStream(seed, stream string) *Generator {
+	return &Generator{rng: Rand(seed, stream)}
 }
 
 // Next returns prefix + "_" + 12 characters.
