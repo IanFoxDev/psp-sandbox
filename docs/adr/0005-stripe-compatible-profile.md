@@ -169,7 +169,7 @@ A domain event becomes zero or more Stripe events, in this order:
 | `payment.failed` | `charge.failed`, `payment_intent.payment_failed` |
 | `payment.canceled` | `payment_intent.canceled` |
 | `refund.succeeded` | `refund.created`, `charge.refunded` |
-| `refund.failed` | `refund.updated` |
+| `refund.failed` | `refund.updated`, `refund.failed` |
 | `chargeback.opened` | `charge.dispute.created` |
 | `chargeback.closed` | `charge.dispute.closed` with `status` `won` or `lost` |
 
@@ -179,7 +179,12 @@ it: `duplicate_callback; times=3` on a capture delivers both events three times,
 
 Event body: `id` (`evt_`), `object: "event"`, `api_version`, `created`, `data.object`
 (snapshot at the time of the change), `livemode: false`, `pending_webhooks`, `request`
-(`id` and `idempotency_key` of the API call that caused it, or nulls), `type`.
+(`id` and `idempotency_key` both null for now: most changes come from the scenario's
+schedule, not from a request), `type`.
+
+The first Stripe event of a domain event keeps its id (`evt_X`), the next ones get
+`evt_X_2`, `evt_X_3`. Rendering is a pure function of the domain event and the payment
+snapshot it carries, so `GET /v1/events` and the webhooks give the same ids and bodies.
 
 Signature: `Stripe-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<body>")>`, with
 the whole secret string as the key. `PSP_WEBHOOK_SECRET` can be any non-empty string in
