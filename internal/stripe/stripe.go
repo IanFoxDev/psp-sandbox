@@ -38,7 +38,10 @@ type Options struct {
 	APIKey string
 	// Seed makes request ids reproducible, as PSP_SEED does for other ids.
 	Seed string
-	Log  *slog.Logger
+	// ManualClock is PSP_CLOCK=manual: confirm answers without waiting for
+	// the outcome, since it only comes when the test moves time.
+	ManualClock bool
+	Log         *slog.Logger
 }
 
 // API serves the Stripe routes under /v1.
@@ -63,6 +66,7 @@ func New(e *engine.Engine, st *store.Store, opts Options) *API {
 // Register adds the /v1 routes to mux. Paths that Stripe has and the sandbox
 // does not answer 404, as an unknown URL does on Stripe.
 func (a *API) Register(mux *http.ServeMux) {
+	a.registerIntents(mux)
 	mux.Handle("/v1/", a.chain(http.HandlerFunc(a.unrecognized)))
 }
 

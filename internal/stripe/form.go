@@ -16,6 +16,7 @@ import (
 // Accessors remember which top-level names were read, so that the rest can be
 // reported as ignored.
 type Params struct {
+	raw  string
 	root *node
 	read map[string]bool
 }
@@ -41,7 +42,7 @@ func ParseParams(raw string) (*Params, error) {
 	if err != nil {
 		return nil, &ParamError{Message: "Invalid form encoding: " + err.Error()}
 	}
-	p := &Params{root: &node{children: map[string]*node{}}, read: map[string]bool{}}
+	p := &Params{raw: raw, root: &node{children: map[string]*node{}}, read: map[string]bool{}}
 	// url.ParseQuery loses the order of keys; indexes of "[]" lists follow the
 	// order inside one key, which is kept.
 	for _, key := range slices.Sorted(maps.Keys(values)) {

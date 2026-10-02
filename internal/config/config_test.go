@@ -58,8 +58,13 @@ func TestRetrySchedule(t *testing.T) {
 
 func TestProfile(t *testing.T) {
 	t.Setenv("PSP_PROFILE", "stripe")
-	if c, err := FromEnv(); err != nil || c.Profile != ProfileStripe {
-		t.Fatalf("stripe: %q %v", c.Profile, err)
+	c, err := FromEnv()
+	if err != nil || c.Profile != ProfileStripe || c.ProcessingDelay != 0 {
+		t.Fatalf("stripe: %q %v %v", c.Profile, c.ProcessingDelay, err)
+	}
+	t.Setenv("PSP_PROCESSING_DELAY", "1s")
+	if c, _ := FromEnv(); c.ProcessingDelay != time.Second {
+		t.Fatalf("explicit delay in the stripe profile: %v", c.ProcessingDelay)
 	}
 	t.Setenv("PSP_PROFILE", "adyen")
 	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "PSP_PROFILE") {

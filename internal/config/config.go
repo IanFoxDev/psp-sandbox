@@ -54,7 +54,13 @@ func FromEnv() (Config, error) {
 	}
 
 	var err error
-	if c.ProcessingDelay, err = time.ParseDuration(env("PSP_PROCESSING_DELAY", "200ms")); err != nil {
+	// Stripe answers a card payment with its outcome, so the stripe profile
+	// settles at once unless asked otherwise.
+	delay := "200ms"
+	if c.Profile == ProfileStripe {
+		delay = "0s"
+	}
+	if c.ProcessingDelay, err = time.ParseDuration(env("PSP_PROCESSING_DELAY", delay)); err != nil {
 		return c, fmt.Errorf("PSP_PROCESSING_DELAY: %w", err)
 	}
 	if c.RetrySchedule, err = parseDurations(env("PSP_RETRY_SCHEDULE", "0s,5s,30s,2m,10m,1h")); err != nil {

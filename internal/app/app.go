@@ -81,12 +81,16 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		Log:       log,
 		UserAgent: "psp-sandbox/" + version,
 	})
-	eng, err := engine.New(engine.Config{
+	engCfg := engine.Config{
 		ProcessingDelay: cfg.ProcessingDelay,
 		CallbackURL:     cfg.CallbackURL,
 		Rules:           rules,
 		DefaultScenario: defaultSpec,
-	}, engine.Deps{Clock: clk, Store: st, Dispatcher: dispatcher, Catalog: catalog, IDs: gen, Log: log})
+	}
+	if cfg.Profile == config.ProfileStripe {
+		engCfg.PaymentPrefix, engCfg.RefundPrefix = "pi", "re"
+	}
+	eng, err := engine.New(engCfg, engine.Deps{Clock: clk, Store: st, Dispatcher: dispatcher, Catalog: catalog, IDs: gen, Log: log})
 	if err != nil {
 		dispatcher.Close()
 		return nil, fmt.Errorf("PSP_DEFAULT_SCENARIO: %w", err)
@@ -108,7 +112,9 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		_, _ = w.Write([]byte(version + "\n"))
 	})
 	if cfg.Profile == config.ProfileStripe {
-		stripe.New(eng, st, stripe.Options{APIKey: cfg.APIKey, Seed: cfg.Seed, Log: log}).Register(mux)
+		stripe.New(eng, st, stripe.Options{
+			APIKey: cfg.APIKey, Seed: cfg.Seed, ManualClock: cfg.ManualClock, Log: log,
+		}).Register(mux)
 	} else {
 		api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
 	}
