@@ -23,4 +23,8 @@ type Refund struct {
 	FailureReason string       `json:"failure_reason,omitempty"`
 	CreatedAt     time.Time    `json:"created_at"`
 	UpdatedAt     time.Time    `json:"updated_at"`
+
+	// Reason and Metadata are kept for APIs that have them.
+	Reason   string            `json:"-"`
+	Metadata map[string]string `json:"-"`
 }

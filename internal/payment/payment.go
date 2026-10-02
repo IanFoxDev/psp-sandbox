@@ -104,6 +104,8 @@ type Payment struct {
 	ConfirmedAt time.Time `json:"-"`
 	// PastFailures holds the decline reasons of earlier attempts, oldest first.
 	PastFailures []string `json:"-"`
+	// DisputedAt is when a chargeback was opened.
+	DisputedAt time.Time `json:"-"`
 	// Description and CancellationReason are kept for APIs that have them.
 	Description        string `json:"-"`
 	CancellationReason string `json:"-"`

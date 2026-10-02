@@ -418,6 +418,12 @@ func (e *Engine) transitionLocked(paymentID string, to payment.Status, reason st
 			return p.Fail(reason, now)
 		case payment.Captured:
 			return p.CaptureAmount(0, now)
+		case payment.Disputed:
+			if err := p.Become(to, now); err != nil {
+				return err
+			}
+			p.DisputedAt = now
+			return nil
 		default:
 			return p.Become(to, now)
 		}
@@ -446,6 +452,7 @@ func (e *Engine) emitLocked(p payment.Payment, typ payment.EventType, data any) 
 		CreatedAt: e.now(),
 		Data:      data,
 		PaymentID: p.ID,
+		Snapshot:  p.Clone(),
 	}
 	e.store.AddEvent(ev)
 	if p.CallbackURL == "" {
@@ -553,30 +560,67 @@ func (e *Engine) Cancel(id string) (payment.Payment, error) {
 // Refund accepts a refund. It settles after the processing delay and sends
 // refund.succeeded.
 func (e *Engine) Refund(paymentID string, amount int64, reference string) (payment.Refund, error) {
+	r, _, err := e.StartRefund(paymentID, RefundRequest{Amount: amount, Reference: reference})
+	return r, err
+}
+
+// RefundRequest is a validated request to refund a payment.
+type RefundRequest struct {
+	Amount    int64
+	Reference string
+	// Reason and Metadata are kept for APIs that have them.
+	Reason   string
+	Metadata map[string]string
+}
+
+// StartRefund is Refund that also returns a channel closed once the refund has
+// settled or failed.
+func (e *Engine) StartRefund(paymentID string, req RefundRequest) (payment.Refund, <-chan struct{}, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	now := e.now()
 	_, r, err := e.store.AddRefund(paymentID, func(p *payment.Payment) (payment.Refund, error) {
-		if err := p.ReserveRefund(amount); err != nil {
+		if err := p.ReserveRefund(req.Amount); err != nil {
 			return payment.Refund{}, err
 		}
 		return payment.Refund{
 			ID:        e.ids.Next(e.cfg.RefundPrefix),
 			PaymentID: p.ID,
 			Status:    payment.RefundPending,
-			Amount:    amount,
+			Amount:    req.Amount,
 			Currency:  p.Currency,
-			Reference: reference,
+			Reference: req.Reference,
 			CreatedAt: now,
 			UpdatedAt: now,
+			Reason:    req.Reason,
+			Metadata:  req.Metadata,
 		}, nil
 	})
 	if err != nil {
-		return r, err
+		return r, nil, err
 	}
 	gen := e.gen
-	e.clock.AfterFunc(e.cfg.ProcessingDelay, func() { e.settleRefund(gen, r.ID) })
-	return r, nil
+	done := make(chan struct{})
+	e.clock.AfterFunc(e.cfg.ProcessingDelay, func() {
+		defer close(done)
+		e.settleRefund(gen, r.ID)
+	})
+	return r, done, nil
+}
+
+// RefundByID returns one refund.
+func (e *Engine) RefundByID(id string) (payment.Refund, error) {
+	return e.store.Refund(id)
+}
+
+// AllEvents returns the events of all payments in the order they happened.
+func (e *Engine) AllEvents() []payment.Event {
+	return e.store.AllEvents()
+}
+
+// Event returns one event.
+func (e *Engine) Event(id string) (payment.Event, error) {
+	return e.store.Event(id)
 }
 
 func (e *Engine) settleRefund(gen uint64, refundID string) {

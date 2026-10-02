@@ -26,7 +26,9 @@ type Store struct {
 	order    []string
 	refunds  map[string]*payment.Refund
 	events   map[string][]payment.Event
-	idem     map[string]*idemEntry
+	// allEvents holds every event in the order they happened.
+	allEvents []payment.Event
+	idem      map[string]*idemEntry
 }
 
 // New returns an empty store.
@@ -48,6 +50,7 @@ func (s *Store) reset() {
 	s.order = nil
 	s.refunds = map[string]*payment.Refund{}
 	s.events = map[string][]payment.Event{}
+	s.allEvents = nil
 	s.idem = map[string]*idemEntry{}
 }
 
@@ -73,6 +76,7 @@ func (s *Store) DropByReferencePrefix(prefix string) []string {
 			delete(s.refunds, id)
 		}
 	}
+	s.allEvents = slices.DeleteFunc(s.allEvents, func(e payment.Event) bool { return dropped[e.PaymentID] })
 	for key, e := range s.idem {
 		if dropped[e.paymentID] {
 			delete(s.idem, key)
@@ -180,6 +184,37 @@ func (s *Store) AddEvent(e payment.Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.events[e.PaymentID] = append(s.events[e.PaymentID], e)
+	s.allEvents = append(s.allEvents, e)
+}
+
+// AllEvents returns the events of all payments in the order they happened.
+func (s *Store) AllEvents() []payment.Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.allEvents)
+}
+
+// Event returns one event.
+func (s *Store) Event(id string) (payment.Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.allEvents {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return payment.Event{}, ErrNotFound
+}
+
+// Refund returns one refund.
+func (s *Store) Refund(id string) (payment.Refund, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.refunds[id]
+	if !ok {
+		return payment.Refund{}, ErrNotFound
+	}
+	return *r, nil
 }
 
 // Events returns the events of a payment in the order they happened.

@@ -49,4 +49,7 @@ type Event struct {
 	Data      any       `json:"data"`
 
 	PaymentID string `json:"-"`
+	// Snapshot is the payment right after the change, for APIs that render
+	// events from more than Data.
+	Snapshot Payment `json:"-"`
 }
