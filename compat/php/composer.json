@@ -1,0 +1,13 @@
+{
+    "name": "ianfoxdev/psp-sandbox-compat-php",
+    "description": "Runs stripe-php against psp-sandbox in the stripe profile. See compat/README.md.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.3",
+        "stripe/stripe-php": "22.0.0"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

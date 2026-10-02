@@ -1,0 +1,55 @@
+# Official Stripe SDKs against the sandbox in the stripe profile.
+# make compat, or one SDK at a time:
+#   docker compose up --build --exit-code-from php php
+name: psp-sandbox-compat
+
+x-sdk: &sdk
+  depends_on:
+    psp: { condition: service_healthy }
+
+services:
+  psp:
+    build: ..
+    environment:
+      PSP_PROFILE: stripe
+      PSP_WEBHOOK_SECRET: whsec_compat_secret
+      PSP_RETRY_SCHEDULE: 0s
+
+  php:
+    <<: *sdk
+    image: composer:2
+    working_dir: /compat/php
+    volumes: ["./php:/compat/php"]
+    environment:
+      PSP_URL: http://psp:8090
+      HOOK_URL: http://php:9000/hook
+      WEBHOOK_SECRET: whsec_compat_secret
+    command: >
+      sh -c "composer install --quiet --no-interaction
+      && (php -S 0.0.0.0:9000 hook.php > /dev/null 2>&1 &)
+      && php check.php"
+
+  go:
+    <<: *sdk
+    image: golang:1.27-alpine
+    working_dir: /compat/go
+    volumes: ["./go:/compat/go", "gocache:/root/go"]
+    environment:
+      PSP_URL: http://psp:8090
+      HOOK_URL: http://go:9000/hook
+      WEBHOOK_SECRET: whsec_compat_secret
+    command: go run .
+
+  node:
+    <<: *sdk
+    image: node:22-alpine
+    working_dir: /compat/node
+    volumes: ["./node:/compat/node"]
+    environment:
+      PSP_URL: http://psp:8090
+      HOOK_URL: http://node:9000/hook
+      WEBHOOK_SECRET: whsec_compat_secret
+    command: sh -c "npm ci --silent --no-audit --no-fund && node check.mjs"
+
+volumes:
+  gocache:

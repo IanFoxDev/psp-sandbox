@@ -12,7 +12,7 @@ REDOCLY_IMAGE ?= redocly/cli:2.57.0
 STRIPE_OPENAPI_COMMIT ?= 6f855712dfc6a235a407136e630bf36a01c069a3
 STRIPE_SPEC = .cache/stripe-openapi/spec3.json
 
-.PHONY: test fmt vet lint openapi-lint stripe-spec contract build run php-test
+.PHONY: test fmt vet lint openapi-lint stripe-spec contract compat build run php-test
 
 test:
 	$(GO) go test -race ./...
@@ -39,6 +39,13 @@ stripe-spec:
 # The path is relative to internal/stripe, where go test runs.
 contract: stripe-spec
 	$(GO) env STRIPE_OPENAPI_SPEC=../../$(STRIPE_SPEC) go test -count=1 -run 'Contract|Validator' -v ./internal/stripe/
+
+# Official Stripe SDKs against the stripe profile, see compat/README.md.
+compat:
+	@set -e; for sdk in php go node; do \
+		docker compose -f compat/compose.yaml up --build --quiet-pull --exit-code-from $$sdk $$sdk \
+			|| { docker compose -f compat/compose.yaml down -v; exit 1; }; \
+	done; docker compose -f compat/compose.yaml down -v
 
 build:
 	docker build -t psp-sandbox:dev .

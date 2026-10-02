@@ -1,0 +1,9 @@
+{
+  "name": "psp-sandbox-compat-node",
+  "private": true,
+  "type": "module",
+  "description": "Runs stripe-node against psp-sandbox in the stripe profile. See compat/README.md.",
+  "dependencies": {
+    "stripe": "23.0.0"
+  }
+}
