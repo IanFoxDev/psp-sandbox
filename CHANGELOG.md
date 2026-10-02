@@ -7,6 +7,11 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- `declined` takes five more reasons: `generic_decline`, `lost_card`, `stolen_card`,
+  `incorrect_cvc`, `processing_error`.
+
 ## [0.2.0] - 2026-10-01
 
 Three more failure scenarios, tests in parallel on one sandbox, and an OpenAPI

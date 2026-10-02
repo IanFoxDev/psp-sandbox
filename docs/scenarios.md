@@ -53,7 +53,7 @@ are not implemented yet: planned ones are next in line, later ones are ideas.
 | | Scenario | Parameters | Behavior |
 |---|---|---|---|
 | v0.1 | `happy_path` | none | `pending -> captured` (or `authorized` with manual capture), one callback per event. |
-| v0.1 | `declined` | `reason` = `insufficient_funds` \| `do_not_honor` \| `expired_card` \| `fraud_suspected` | `pending -> failed`, `payment.failed` with the reason in `failure_reason`. |
+| v0.1 | `declined` | `reason` = `insufficient_funds` \| `do_not_honor` \| `expired_card` \| `fraud_suspected` \| `generic_decline` \| `lost_card` \| `stolen_card` \| `incorrect_cvc` \| `processing_error` | `pending -> failed`, `payment.failed` with the reason in `failure_reason`. |
 | v0.1 | `duplicate_callback` | `times` = 2 (up to 20), `parallel` = false, `interval` = 0s | Every event is delivered `times` times. With `parallel=true` all copies are sent at once to hit race conditions. |
 | v0.1 | `callback_before_response` | `lead` = 50ms | The status changes and the callback is sent, then the create response is returned `lead` later. The response still says `pending`. |
 | v0.1 | `timeout_then_success` | `delay` = 35s, `mode` = `hold` \| `reset` | `hold`: the create response is delayed by `delay`. `reset`: the connection is closed without a response. The payment is created and captured either way, callback included. A retry with the same `Idempotency-Key` returns the payment. |

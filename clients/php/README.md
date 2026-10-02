@@ -105,7 +105,7 @@ $sandbox->waitForStatus($payments[0]->id, PaymentStatus::Captured);
 | Case | Parameters |
 |---|---|
 | `Scenario::HappyPath` | none |
-| `Scenario::Declined` | `reason`: `insufficient_funds`, `do_not_honor`, `expired_card`, `fraud_suspected` |
+| `Scenario::Declined` | `reason`: `insufficient_funds`, `do_not_honor`, `expired_card`, `fraud_suspected`, `generic_decline`, `lost_card`, `stolen_card`, `incorrect_cvc`, `processing_error` |
 | `Scenario::DuplicateCallback` | `times` (2 to 20), `parallel`, `interval` |
 | `Scenario::CallbackBeforeResponse` | `lead` |
 | `Scenario::TimeoutThenSuccess` | `delay`, `mode`: `hold` or `reset` |

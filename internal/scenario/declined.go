@@ -7,10 +7,11 @@ func init() {
 		Name:        "declined",
 		Description: "pending -> failed, payment.failed with the decline reason.",
 		Params: []Param{{
-			Name:        "reason",
-			Type:        "string",
-			Default:     "insufficient_funds",
-			Allowed:     []string{"insufficient_funds", "do_not_honor", "expired_card", "fraud_suspected"},
+			Name:    "reason",
+			Type:    "string",
+			Default: "insufficient_funds",
+			Allowed: []string{"insufficient_funds", "do_not_honor", "expired_card", "fraud_suspected",
+				"generic_decline", "lost_card", "stolen_card", "incorrect_cvc", "processing_error"},
 			Description: "Decline reason, sent as failure_reason.",
 		}},
 		build: func(v *Values) Scenario {

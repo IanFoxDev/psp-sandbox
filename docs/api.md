@@ -69,8 +69,8 @@ Response `201`:
 ```
 
 `reference` and `metadata` are left out when empty. A failed payment also carries
-`failure_reason` (`insufficient_funds`, `do_not_honor`, `expired_card`,
-`fraud_suspected`).
+`failure_reason`: one of the `reason` values of the `declined` scenario
+([scenarios](scenarios.md)), `do_not_honor` for a forced failure.
 
 The payment moves to its next status asynchronously and a callback is sent, unless the
 scenario says otherwise.

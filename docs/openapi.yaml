@@ -659,7 +659,7 @@ components:
         failure_reason:
           description: Only on failed payments.
           type: string
-          enum: [insufficient_funds, do_not_honor, expired_card, fraud_suspected]
+          enum: [insufficient_funds, do_not_honor, expired_card, fraud_suspected, generic_decline, lost_card, stolen_card, incorrect_cvc, processing_error]
         created_at:
           $ref: '#/components/schemas/Time'
         updated_at:
