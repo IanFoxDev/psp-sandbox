@@ -97,7 +97,8 @@ func run() int {
 	go func() {
 		served <- srv.Serve(ln)
 	}()
-	log.Info("psp-sandbox listening", "addr", ln.Addr().String(), "version", version, "manual_clock", cfg.ManualClock)
+	log.Info("psp-sandbox listening", "addr", ln.Addr().String(), "version", version, "profile", cfg.Profile,
+		"manual_clock", cfg.ManualClock)
 
 	select {
 	case err := <-served:

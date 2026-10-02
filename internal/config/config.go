@@ -9,8 +9,16 @@ import (
 	"time"
 )
 
+// Profiles, the values of PSP_PROFILE.
+const (
+	ProfileNative = "native"
+	ProfileStripe = "stripe"
+)
+
 // Config is the sandbox configuration. See docs/api.md for the variables.
 type Config struct {
+	// Profile is the provider API the sandbox speaks: native or stripe.
+	Profile         string
 	Addr            string
 	APIKey          string
 	CallbackURL     string
@@ -27,6 +35,7 @@ type Config struct {
 // FromEnv reads PSP_* variables, applying defaults for unset ones.
 func FromEnv() (Config, error) {
 	c := Config{
+		Profile:         env("PSP_PROFILE", ProfileNative),
 		Addr:            env("PSP_ADDR", ":8090"),
 		APIKey:          os.Getenv("PSP_API_KEY"),
 		CallbackURL:     os.Getenv("PSP_CALLBACK_URL"),
@@ -58,6 +67,10 @@ func FromEnv() (Config, error) {
 		c.ManualClock = true
 	default:
 		return c, fmt.Errorf("PSP_CLOCK: want real or manual, got %q", clock)
+	}
+
+	if c.Profile != ProfileNative && c.Profile != ProfileStripe {
+		return c, fmt.Errorf("PSP_PROFILE: want %s or %s, got %q", ProfileNative, ProfileStripe, c.Profile)
 	}
 
 	if c.LogFormat != "text" && c.LogFormat != "json" {

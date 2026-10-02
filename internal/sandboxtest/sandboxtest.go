@@ -30,6 +30,7 @@ const Wait = 5 * time.Second
 // short retries, fixed secret and seed.
 func Config() config.Config {
 	return config.Config{
+		Profile:         config.ProfileNative,
 		Addr:            ":0",
 		WebhookSecret:   Secret,
 		DefaultScenario: "happy_path",

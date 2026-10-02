@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -9,6 +10,9 @@ func TestDefaults(t *testing.T) {
 	c, err := FromEnv()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c.Profile != ProfileNative {
+		t.Errorf("Profile = %q", c.Profile)
 	}
 	if c.Addr != ":8090" {
 		t.Errorf("Addr = %q", c.Addr)
@@ -49,5 +53,16 @@ func TestRetrySchedule(t *testing.T) {
 		if c.RetrySchedule[i] != d {
 			t.Errorf("RetrySchedule[%d] = %v, want %v", i, c.RetrySchedule[i], d)
 		}
+	}
+}
+
+func TestProfile(t *testing.T) {
+	t.Setenv("PSP_PROFILE", "stripe")
+	if c, err := FromEnv(); err != nil || c.Profile != ProfileStripe {
+		t.Fatalf("stripe: %q %v", c.Profile, err)
+	}
+	t.Setenv("PSP_PROFILE", "adyen")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "PSP_PROFILE") {
+		t.Fatalf("adyen: %v", err)
 	}
 }

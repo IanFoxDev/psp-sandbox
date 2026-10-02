@@ -48,12 +48,19 @@ var route = regexp.MustCompile(`\.Handle(?:Func)?\("([A-Z]+) (/[^"]*)"`)
 
 // TestSpecRoutes keeps docs/openapi.yaml and the registered routes in step:
 // every route is in the spec and every operation in the spec is served. The
-// web UI is HTML for people and stays out of the spec.
+// web UI is HTML for people and stays out of the spec. The Stripe profile is
+// described by Stripe's own spec (ADR 0005), so internal/stripe is skipped.
 func TestSpecRoutes(t *testing.T) {
 	inCode := map[string]bool{}
 	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		if err != nil {
 			return err
+		}
+		if d.IsDir() && filepath.Base(path) == "stripe" {
+			return filepath.SkipDir
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
 		}
 		src, err := os.ReadFile(path)
 		if err != nil {

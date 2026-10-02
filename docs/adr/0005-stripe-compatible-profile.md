@@ -84,7 +84,7 @@ applied: `succeeded` or `requires_capture`, or `402` with a `card_error` that ca
   lists indexed (`expand[0]=latest_charge`); `expand[]=` from hand-written curl is
   accepted too. A JSON body gets `400` with a message that v1 takes form encoding.
 - `Authorization: Bearer sk_test_...` or basic auth with the key as user (`curl -u`).
-  Any `sk_test_` key passes, or exactly `PSP_API_KEY` when set. `sk_live_`, `rk_live_`
+  Any `sk_test_` or `rk_test_` key passes, or exactly `PSP_API_KEY` when set. `sk_live_`, `rk_live_`
   and `pk_` keys get `401` with a message saying so.
 - Unknown parameters are accepted and ignored, with one WARN per parameter name in the
   log. Real code sends `automatic_payment_methods`, `receipt_email` and others the

@@ -19,6 +19,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 	"github.com/ianfoxdev/psp-sandbox/internal/store"
+	"github.com/ianfoxdev/psp-sandbox/internal/stripe"
 	"github.com/ianfoxdev/psp-sandbox/internal/ui"
 )
 
@@ -106,7 +107,11 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(version + "\n"))
 	})
-	api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
+	if cfg.Profile == config.ProfileStripe {
+		stripe.New(eng, st, stripe.Options{APIKey: cfg.APIKey, Seed: cfg.Seed, Log: log}).Register(mux)
+	} else {
+		api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
+	}
 	control.New(eng, dispatcher, catalog, clk).Register(mux)
 	ui.New(eng, dispatcher, clk, log).Register(mux)
 
