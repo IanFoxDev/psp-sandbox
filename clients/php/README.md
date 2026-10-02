@@ -15,8 +15,9 @@ The package has three parts:
 - `Webhook\Verifier`: checks the callback signature in your application. No
   dependencies, works with any Standard Webhooks sender.
 
-Client 0.2 goes with server 0.2 (`ghcr.io/ianfoxdev/psp-sandbox:0.2`). Client 0.1 works
-with server 0.2 too, without the new scenarios and the prefix reset.
+Client 0.3 goes with server 0.3 (`ghcr.io/ianfoxdev/psp-sandbox:0.3`). Older clients work
+with server 0.3 too, without the newer scenarios, the prefix reset and
+`Scenario::metadata()`.
 
 ## Install
 
@@ -42,7 +43,7 @@ In the `compose.yaml` of your project, next to the app:
 ```yaml
 services:
   psp:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.2
+    image: ghcr.io/ianfoxdev/psp-sandbox:0.3
     ports: ["8090:8090"]
     environment:
       PSP_CALLBACK_URL: http://app/api/psp/callback
@@ -55,7 +56,7 @@ Or on its own, with callbacks going to an app on your machine:
 docker run --rm -p 8090:8090 \
   -e PSP_CALLBACK_URL=http://host.docker.internal:8000/api/psp/callback \
   -e PSP_WEBHOOK_SECRET=whsec_dGVzdC1zZWNyZXQ= \
-  ghcr.io/ianfoxdev/psp-sandbox:0.2
+  ghcr.io/ianfoxdev/psp-sandbox:0.3
 ```
 
 Set `PSP_WEBHOOK_SECRET` explicitly. Without it the sandbox makes up a random secret at

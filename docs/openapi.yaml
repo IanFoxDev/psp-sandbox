@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: psp-sandbox
-  version: 0.2.0
+  version: 0.3.0
   summary: A fake payment provider for tests and CI that fails the way real providers do.
   description: |
     Two APIs on one port. The provider API (`/v1`) is what your application calls.
@@ -466,7 +466,7 @@ paths:
       summary: Version of the running sandbox
       responses:
         '200':
-          description: Version, such as `v0.2.0`.
+          description: Version, such as `v0.3.0`.
           content:
             text/plain:
               schema:

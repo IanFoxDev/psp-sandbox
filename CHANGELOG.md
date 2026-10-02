@@ -7,6 +7,13 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-03
+
+A Stripe-compatible profile: code on the official Stripe SDK runs against the sandbox
+with one change, its base URL, and gets every failure scenario. Checked against Stripe's
+OpenAPI spec and with stripe-php, stripe-go and stripe-node. Nothing in the native
+profile changes.
+
 ### Added
 
 - Stripe-compatible profile, `PSP_PROFILE=stripe`: PaymentIntents (create, confirm,
@@ -124,7 +131,8 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IanFoxDev/psp-sandbox/releases/tag/v0.1.0
