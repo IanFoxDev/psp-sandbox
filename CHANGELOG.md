@@ -9,6 +9,16 @@ such changes are marked **BREAKING**.
 
 ### Added
 
+- Stripe-compatible profile, `PSP_PROFILE=stripe`: PaymentIntents (create, confirm,
+  capture, cancel, update, list), charges, refunds and events on Stripe's paths and
+  form encoding, Stripe errors and idempotency, webhooks with Stripe events and
+  `Stripe-Signature`. Stripe's test cards pick declines and disputes;
+  `metadata[sandbox_scenario]` picks any scenario. All scenarios work in it. See
+  [docs/stripe.md](docs/stripe.md).
+- Contract test of the stripe profile against Stripe's OpenAPI spec (`make contract`),
+  and checks with stripe-php, stripe-go and stripe-node (`make compat`, `compat/`).
+- Laravel example: the same shop paying through stripe-php, with a naive and a safe
+  webhook handler.
 - `declined` takes five more reasons: `generic_decline`, `lost_card`, `stolen_card`,
   `incorrect_cvc`, `processing_error`.
 - PHP client: `Scenario::...->metadata($params)` for picking a scenario through metadata

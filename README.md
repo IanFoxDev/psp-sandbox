@@ -14,7 +14,9 @@ a refund comes back before the capture. None of this can be triggered on demand 
 vendor sandbox, so this code usually ships untested.
 
 psp-sandbox is a single Docker container that speaks a simple PSP-style API, sends signed
-callbacks to your app, and lets each test pick a failure scenario by name.
+callbacks to your app, and lets each test pick a failure scenario by name. With
+`PSP_PROFILE=stripe` it speaks Stripe's API instead, so code on the official Stripe SDK
+gets the same failures without an adapter.
 
 > Status: v0.2. Until 1.0, a minor version may change the API; such changes are marked
 > **BREAKING** in the [CHANGELOG](CHANGELOG.md).
@@ -55,6 +57,31 @@ what was sent, what your app answered, how long it took.
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui-payment-dark.png">
   <img alt="Payment page in the web UI: one payment.captured event delivered three times, each delivery with its attempts and a Replay button" src="docs/images/ui-payment-light.png" width="800">
 </picture>
+
+## Code that calls Stripe
+
+Start the sandbox with `PSP_PROFILE=stripe` and point the SDK at it. Nothing else in
+the app changes: PaymentIntents, refunds, events and webhooks signed with
+`Stripe-Signature` behave like Stripe's, checked against Stripe's OpenAPI spec and with
+stripe-php, stripe-go and stripe-node in CI.
+
+```php
+$stripe = new \Stripe\StripeClient(['api_key' => 'sk_test_123', 'api_base' => 'http://localhost:8090']);
+$stripe->paymentIntents->create([
+    'amount' => 1000, 'currency' => 'eur', 'confirm' => true, 'payment_method' => 'pm_card_visa',
+    'metadata' => ['order_id' => '42', 'sandbox_scenario' => 'duplicate_callback; times=3'],
+]);
+```
+
+The webhook handler gets `payment_intent.succeeded` three times, each with a valid
+`Stripe-Signature`. Stripe's test cards work as they do in test mode
+(`pm_card_visa_chargeDeclinedInsufficientFunds` is a `402` card error), and every
+scenario below can be picked through metadata.
+
+Setup for each SDK, what is supported and how it differs from Stripe:
+[docs/stripe.md](docs/stripe.md). Running the SDKs against the sandbox also showed that
+stripe-go does not retry `5xx` answers and that stripe-php retries POSTs without an
+idempotency key unless retries are on globally; details there.
 
 ## Scenarios
 
@@ -188,6 +215,7 @@ can run in parallel). See [docs/api.md](docs/api.md#control-api).
 ## Documentation
 
 - [API](docs/api.md), and the same as [OpenAPI 3.1](docs/openapi.yaml)
+- [Stripe-compatible profile](docs/stripe.md)
 - [Scenarios](docs/scenarios.md)
 - [Callbacks and signing](docs/callbacks.md)
 - [Architecture](docs/architecture.md)
