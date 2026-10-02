@@ -15,6 +15,9 @@ type Status string
 
 // Payment statuses.
 const (
+	// Unconfirmed is a payment that exists but has not been sent for
+	// processing. The native API never produces it: there, create confirms.
+	Unconfirmed       Status = "unconfirmed"
 	Pending           Status = "pending"
 	Authorized        Status = "authorized"
 	Captured          Status = "captured"
@@ -30,6 +33,7 @@ const (
 // transitions lists, for each status, the statuses it may move to.
 // A status that is not a key here is final.
 var transitions = map[Status][]Status{
+	Unconfirmed:       {Pending, Canceled},
 	Pending:           {Authorized, Captured, Failed, Canceled},
 	Authorized:        {Captured, Canceled},
 	Captured:          {PartiallyRefunded, Refunded, Disputed},
@@ -90,6 +94,11 @@ type Payment struct {
 	CallbackURL string `json:"-"`
 	// RefundPending is the sum of refunds that are accepted but not settled yet.
 	RefundPending int64 `json:"-"`
+	// PaymentMethod is what the payer used, when the API takes one.
+	PaymentMethod string `json:"-"`
+	// Attempt counts confirmations: 0 while unconfirmed, then 1, and one more
+	// for each retry after a failure.
+	Attempt int `json:"-"`
 }
 
 // Clone returns a copy that shares no memory with p.
@@ -105,6 +114,26 @@ func (p *Payment) Become(to Status, at time.Time) error {
 	}
 	p.Status = to
 	p.UpdatedAt = at
+	return nil
+}
+
+// Confirm sends an unconfirmed payment for processing, or starts a new attempt
+// of a failed one. Failed stays final for scenarios and for the native API:
+// only an explicit confirmation, with a new payment method, reopens it.
+func (p *Payment) Confirm(at time.Time) error {
+	switch p.Status {
+	case Unconfirmed:
+		if err := p.Become(Pending, at); err != nil {
+			return err
+		}
+	case Failed:
+		p.Status = Pending
+		p.UpdatedAt = at
+		p.FailureReason = ""
+	default:
+		return fmt.Errorf("%w: payment is %s, only unconfirmed or failed payments can be confirmed", ErrInvalidState, p.Status)
+	}
+	p.Attempt++
 	return nil
 }
 

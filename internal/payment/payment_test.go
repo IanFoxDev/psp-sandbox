@@ -9,9 +9,11 @@ import (
 var now = time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 
 func TestTransitions(t *testing.T) {
-	all := []Status{Pending, Authorized, Captured, PartiallyRefunded, Refunded, Failed,
+	all := []Status{Unconfirmed, Pending, Authorized, Captured, PartiallyRefunded, Refunded, Failed,
 		Canceled, Disputed, ChargebackLost, ChargebackWon}
 	allowed := map[[2]Status]bool{
+		{Unconfirmed, Pending}:                 true,
+		{Unconfirmed, Canceled}:                true,
 		{Pending, Authorized}:                  true,
 		{Pending, Captured}:                    true,
 		{Pending, Failed}:                      true,
@@ -158,5 +160,34 @@ func must(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConfirm(t *testing.T) {
+	p := newPayment()
+	p.Status = Unconfirmed
+	if err := p.Confirm(now); err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != Pending || p.Attempt != 1 {
+		t.Fatalf("got %s attempt %d", p.Status, p.Attempt)
+	}
+	if err := p.Fail("insufficient_funds", now); err != nil {
+		t.Fatal(err)
+	}
+	if !p.Status.Final() {
+		t.Fatal("failed should stay final for status changes")
+	}
+	if err := p.Confirm(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != Pending || p.Attempt != 2 || p.FailureReason != "" || !p.UpdatedAt.Equal(now.Add(time.Second)) {
+		t.Fatalf("new attempt: %+v", p)
+	}
+	if err := p.CaptureAmount(0, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Confirm(now); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("confirm captured: %v", err)
 	}
 }

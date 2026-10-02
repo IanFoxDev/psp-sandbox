@@ -7,6 +7,9 @@ type EventType string
 
 // Event types sent in callbacks.
 const (
+	// EventPaymentCreated is sent when a payment is created unconfirmed. The
+	// native API creates and confirms at once and never sends it.
+	EventPaymentCreated    EventType = "payment.created"
 	EventPaymentAuthorized EventType = "payment.authorized"
 	EventPaymentCaptured   EventType = "payment.captured"
 	EventPaymentFailed     EventType = "payment.failed"
