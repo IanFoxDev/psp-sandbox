@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -112,46 +113,151 @@ type CreateRequest struct {
 	RetryKey string
 }
 
-// Created is the result of Create.
+// Created is the result of Create and Confirm.
 type Created struct {
-	// Payment is the payment as it was when created (pending).
+	// Payment is the payment as it was when confirmed (pending).
 	Payment payment.Payment
 	// Response says how to shape the HTTP answer.
 	Response scenario.Response
 	// FirstCallback is closed once the first callback attempt for the payment
 	// has finished, or when it is clear that none will be made.
 	FirstCallback <-chan struct{}
+	// Settled is closed once the first status step of the scenario has been
+	// applied or skipped, or when the scenario has no steps. APIs that answer
+	// with the outcome wait for it.
+	Settled <-chan struct{}
 }
 
-// Create stores a new pending payment and starts its scenario.
+// Create stores a new pending payment and starts its scenario. Nothing is
+// stored when the scenario refuses the call.
 func (e *Engine) Create(req CreateRequest) (Created, error) {
-	spec := e.cfg.DefaultScenario
-	if req.Scenario != nil {
-		spec = *req.Scenario
-	} else if s, ok := e.cfg.Rules.Match(scenario.Input{
+	sc, err := e.pick(req.Scenario, scenario.Input{
 		Amount: req.Amount, Currency: req.Currency, Reference: req.Reference, Metadata: req.Metadata,
-	}); ok {
+	})
+	if err != nil {
+		return Created{}, err
+	}
+	if err := e.refuseIf(sc, req.RetryKey); err != nil {
+		return Created{}, err
+	}
+
+	p := e.newPayment(req, payment.Pending)
+	p.Scenario = sc.Name()
+	p.Attempt = 1
+
+	e.mu.Lock()
+	e.store.AddPayment(p)
+	e.scenarios[p.ID] = sc
+	gen := e.gen
+	e.mu.Unlock()
+
+	e.log.Info("payment created", "payment", p.ID, "amount", p.Amount, "currency", p.Currency, "scenario", sc.Name())
+	return e.start(gen, p, sc), nil
+}
+
+// Prepare stores a new unconfirmed payment and sends payment.created. No
+// scenario runs until Confirm; req.Scenario and req.RetryKey are not used.
+func (e *Engine) Prepare(req CreateRequest) (payment.Payment, error) {
+	p := e.newPayment(req, payment.Unconfirmed)
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.store.AddPayment(p)
+	e.emitLocked(p, payment.EventPaymentCreated, p)
+	e.log.Info("payment prepared", "payment", p.ID, "amount", p.Amount, "currency", p.Currency)
+	return p, nil
+}
+
+// ConfirmRequest is a validated request to confirm a payment.
+type ConfirmRequest struct {
+	// Scenario is nil when the request did not name one. Rules then match the
+	// payment as it is stored.
+	Scenario *scenario.Spec
+	// PaymentMethod replaces the stored one when not empty.
+	PaymentMethod string
+	// RetryKey is as in CreateRequest.
+	RetryKey string
+}
+
+// Confirm sends an unconfirmed payment for processing, or starts a new
+// attempt of a failed one, with a scenario picked now. Steps left over from an
+// earlier attempt are skipped. When the scenario refuses the call, the payment
+// stays as it was.
+func (e *Engine) Confirm(id string, req ConfirmRequest) (Created, error) {
+	cur, err := e.store.Payment(id)
+	if err != nil {
+		return Created{}, err
+	}
+	if cur.Status != payment.Unconfirmed && cur.Status != payment.Failed {
+		return Created{}, fmt.Errorf("%w: payment is %s, only unconfirmed or failed payments can be confirmed",
+			payment.ErrInvalidState, cur.Status)
+	}
+	sc, err := e.pick(req.Scenario, scenario.Input{
+		Amount: cur.Amount, Currency: cur.Currency, Reference: cur.Reference, Metadata: cur.Metadata,
+	})
+	if err != nil {
+		return Created{}, err
+	}
+	if err := e.refuseIf(sc, req.RetryKey); err != nil {
+		return Created{}, err
+	}
+
+	e.mu.Lock()
+	now := e.now()
+	p, err := e.store.UpdatePayment(id, func(p *payment.Payment) error {
+		if err := p.Confirm(now); err != nil {
+			return err
+		}
+		if req.PaymentMethod != "" {
+			p.PaymentMethod = req.PaymentMethod
+		}
+		p.Scenario = sc.Name()
+		return nil
+	})
+	if err != nil {
+		e.mu.Unlock()
+		return Created{}, err
+	}
+	e.scenarios[p.ID] = sc
+	gen := e.gen
+	e.mu.Unlock()
+
+	e.log.Info("payment confirmed", "payment", p.ID, "attempt", p.Attempt, "scenario", sc.Name())
+	return e.start(gen, p, sc), nil
+}
+
+// pick builds the requested scenario, or the one the rules give for in, or
+// the default.
+func (e *Engine) pick(requested *scenario.Spec, in scenario.Input) (scenario.Scenario, error) {
+	spec := e.cfg.DefaultScenario
+	if requested != nil {
+		spec = *requested
+	} else if s, ok := e.cfg.Rules.Match(in); ok {
 		spec = s
 	}
 	sc, err := e.catalog.Build(spec)
 	if err != nil {
-		return Created{}, fmt.Errorf("%w: %w", ErrInvalidScenario, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidScenario, err)
 	}
-	if rf, ok := sc.(scenario.Refuser); ok {
-		if err := e.refuse(rf, sc.Name(), req.RetryKey); err != nil {
-			return Created{}, err
-		}
-	}
+	return sc, nil
+}
 
+func (e *Engine) refuseIf(sc scenario.Scenario, key string) error {
+	if rf, ok := sc.(scenario.Refuser); ok {
+		return e.refuse(rf, sc.Name(), key)
+	}
+	return nil
+}
+
+func (e *Engine) newPayment(req CreateRequest, status payment.Status) payment.Payment {
 	now := e.now()
 	p := payment.Payment{
 		ID:          e.ids.Next("pay"),
-		Status:      payment.Pending,
+		Status:      status,
 		Amount:      req.Amount,
 		Currency:    req.Currency,
 		Reference:   req.Reference,
 		Capture:     req.Capture,
-		Scenario:    sc.Name(),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		Metadata:    req.Metadata,
@@ -163,20 +269,17 @@ func (e *Engine) Create(req CreateRequest) (Created, error) {
 	if p.CallbackURL == "" {
 		p.CallbackURL = e.cfg.CallbackURL
 	}
+	return p
+}
 
-	e.mu.Lock()
-	e.store.AddPayment(p)
-	e.scenarios[p.ID] = sc
-	gen := e.gen
-	e.mu.Unlock()
-
-	e.log.Info("payment created", "payment", p.ID, "amount", p.Amount, "currency", p.Currency, "scenario", sc.Name())
-
+// start asks the scenario for its plan and runs the steps of this attempt.
+func (e *Engine) start(gen uint64, p payment.Payment, sc scenario.Scenario) Created {
 	plan := sc.OnCreate(scenario.CreateContext{Payment: p.Clone(), ProcessingDelay: e.cfg.ProcessingDelay})
 	first := make(chan struct{})
-	e.runSteps(gen, p.ID, plan.Steps, 0, first)
-
-	return Created{Payment: p, Response: plan.Response, FirstCallback: first}, nil
+	settled := make(chan struct{})
+	r := run{e: e, gen: gen, paymentID: p.ID, attempt: p.Attempt}
+	r.steps(plan.Steps, 0, first, settled)
+	return Created{Payment: p, Response: plan.Response, FirstCallback: first, Settled: settled}
 }
 
 // refuse counts the call and returns a RefusedError if the scenario refuses
@@ -195,18 +298,32 @@ func (e *Engine) refuse(rf scenario.Refuser, name, key string) error {
 	return &RefusedError{Status: status, Scenario: name, Attempt: n + 1}
 }
 
-// runSteps applies steps[i:] in order at their offsets from creation. Steps
+// run is one attempt of a payment: its steps apply only while the payment is
+// still on that attempt.
+type run struct {
+	e         *Engine
+	gen       uint64
+	paymentID string
+	attempt   int
+}
+
+// steps applies steps[i:] in order at their offsets from confirmation. Steps
 // due now are applied before it returns. first is closed after the first
 // callback attempt of the first event, or when the steps run out without one.
-func (e *Engine) runSteps(gen uint64, paymentID string, steps []scenario.Step, elapsed time.Duration, first chan struct{}) {
+// settled is closed after the first step, applied or skipped.
+func (r run) steps(steps []scenario.Step, elapsed time.Duration, first, settled chan struct{}) {
 	for i, step := range steps {
 		if step.After > elapsed {
 			rest := steps[i:]
 			at := step.After
-			e.clock.AfterFunc(at-elapsed, func() { e.runSteps(gen, paymentID, rest, at, first) })
+			r.e.clock.AfterFunc(at-elapsed, func() { r.steps(rest, at, first, settled) })
 			return
 		}
-		sent := e.applyStep(gen, paymentID, step)
+		sent := r.e.applyStep(r, step)
+		if settled != nil {
+			close(settled)
+			settled = nil
+		}
 		if sent != nil && first != nil {
 			go func(first chan struct{}) {
 				<-sent
@@ -218,19 +335,27 @@ func (e *Engine) runSteps(gen uint64, paymentID string, steps []scenario.Step, e
 	if first != nil {
 		close(first)
 	}
+	if settled != nil {
+		close(settled)
+	}
 }
 
 // applyStep changes the payment status and sends the event. It returns the
 // dispatcher channel of that event, or nil if nothing was sent.
-func (e *Engine) applyStep(gen uint64, paymentID string, step scenario.Step) <-chan struct{} {
+func (e *Engine) applyStep(r run, step scenario.Step) <-chan struct{} {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if gen != e.gen {
+	if r.gen != e.gen {
 		return nil
 	}
-	_, _, sent, err := e.transitionLocked(paymentID, step.Status, step.Reason)
+	if p, err := e.store.Payment(r.paymentID); err == nil && p.Attempt != r.attempt {
+		e.log.Info("scheduled status change skipped", "payment", r.paymentID, "to", step.Status,
+			"err", "step of attempt "+strconv.Itoa(r.attempt)+", payment is on attempt "+strconv.Itoa(p.Attempt))
+		return nil
+	}
+	_, _, sent, err := e.transitionLocked(r.paymentID, step.Status, step.Reason)
 	if err != nil {
-		e.log.Info("scheduled status change skipped", "payment", paymentID, "to", step.Status, "err", err)
+		e.log.Info("scheduled status change skipped", "payment", r.paymentID, "to", step.Status, "err", err)
 		return nil
 	}
 	return sent
