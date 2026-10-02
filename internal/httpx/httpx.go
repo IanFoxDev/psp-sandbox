@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
@@ -167,3 +168,15 @@ type statusProbe struct {
 func (p *statusProbe) Header() http.Header         { return p.header }
 func (p *statusProbe) Write(b []byte) (int, error) { return len(b), nil }
 func (p *statusProbe) WriteHeader(status int)      { p.status = status }
+
+// ResetConnection closes the client connection without writing a response.
+func ResetConnection(w http.ResponseWriter) {
+	conn, _, err := http.NewResponseController(w).Hijack()
+	if err != nil {
+		panic(http.ErrAbortHandler)
+	}
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		_ = tcp.SetLinger(0)
+	}
+	_ = conn.Close()
+}

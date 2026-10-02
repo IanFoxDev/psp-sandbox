@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -81,7 +80,7 @@ func retryKey(r *http.Request, req createRequest) string {
 func (a *API) hold(w http.ResponseWriter, r *http.Request, c engine.Created) bool {
 	plan := c.Response
 	if plan.Reset {
-		resetConnection(w)
+		httpx.ResetConnection(w)
 		return false
 	}
 	if plan.AfterFirstCallback {
@@ -102,18 +101,6 @@ func (a *API) hold(w http.ResponseWriter, r *http.Request, c engine.Created) boo
 		}
 	}
 	return true
-}
-
-// resetConnection closes the client connection without writing a response.
-func resetConnection(w http.ResponseWriter) {
-	conn, _, err := http.NewResponseController(w).Hijack()
-	if err != nil {
-		panic(http.ErrAbortHandler)
-	}
-	if tcp, ok := conn.(*net.TCPConn); ok {
-		_ = tcp.SetLinger(0)
-	}
-	_ = conn.Close()
 }
 
 func validateCreate(req createRequest) (engine.CreateRequest, string) {
