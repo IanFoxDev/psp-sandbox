@@ -1,5 +1,6 @@
 /bin/
 /dist/
+/.cache/
 clients/php/vendor/
 clients/php/composer.lock
 clients/php/.phpunit.cache/

@@ -7,8 +7,12 @@ GO =
 endif
 LINT_IMAGE ?= golangci/golangci-lint:v2.4.0
 REDOCLY_IMAGE ?= redocly/cli:2.57.0
+# Stripe's OpenAPI spec for the contract test of the stripe profile (ADR 0005).
+# The test checks the file's sha256, so change both together.
+STRIPE_OPENAPI_COMMIT ?= 6f855712dfc6a235a407136e630bf36a01c069a3
+STRIPE_SPEC = .cache/stripe-openapi/spec3.json
 
-.PHONY: test fmt vet lint openapi-lint build run php-test
+.PHONY: test fmt vet lint openapi-lint stripe-spec contract build run php-test
 
 test:
 	$(GO) go test -race ./...
@@ -25,6 +29,16 @@ lint:
 # Rules in redocly.yaml. Routes and response fields are checked by go test.
 openapi-lint:
 	docker run --rm -v $(CURDIR):/spec -w /spec $(REDOCLY_IMAGE) lint docs/openapi.yaml
+
+stripe-spec:
+	@mkdir -p $(dir $(STRIPE_SPEC))
+	@test -f $(STRIPE_SPEC) || curl -fsSL -o $(STRIPE_SPEC) \
+		https://raw.githubusercontent.com/stripe/openapi/$(STRIPE_OPENAPI_COMMIT)/openapi/spec3.json
+
+# Every answer and event of the stripe profile against Stripe's own schemas.
+# The path is relative to internal/stripe, where go test runs.
+contract: stripe-spec
+	$(GO) env STRIPE_OPENAPI_SPEC=../../$(STRIPE_SPEC) go test -count=1 -run 'Contract|Validator' -v ./internal/stripe/
 
 build:
 	docker build -t psp-sandbox:dev .
