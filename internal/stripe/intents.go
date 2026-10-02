@@ -617,22 +617,8 @@ func (a *API) listIntents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, hasLimit, err := p.Int("limit")
-	if err != nil {
-		writeParamError(w, err)
-		return
-	}
-	if !hasLimit {
-		limit = 10
-	}
-	if limit < 1 || limit > 100 {
-		invalidRequest(w, http.StatusBadRequest, "parameter_invalid_integer", "limit",
-			"This value must be between 1 and 100.")
-		return
-	}
-	after, _, err := p.String("starting_after")
-	if err != nil {
-		writeParamError(w, err)
+	limit, after, ok := pageParams(w, p)
+	if !ok {
 		return
 	}
 	expand, err := a.expandsCharge(endpoint, p)
@@ -644,16 +630,10 @@ func (a *API) listIntents(w http.ResponseWriter, r *http.Request) {
 
 	all := a.engine.Payments("")
 	slices.Reverse(all) // newest first
-	if after != "" {
-		i := slices.IndexFunc(all, func(p payment.Payment) bool { return p.ID == after })
-		if i < 0 {
-			invalidRequest(w, http.StatusBadRequest, "resource_missing", "starting_after",
-				"No such payment_intent: '"+after+"'")
-			return
-		}
-		all = all[i+1:]
+	page, hasMore, ok := paginate(w, all, after, limit, func(p payment.Payment) string { return p.ID }, "payment_intent")
+	if !ok {
+		return
 	}
-	page := all[:min(int(limit), len(all))]
 	data := make([]object, len(page))
 	for i, pi := range page {
 		data[i] = renderIntent(pi, expand)
@@ -661,7 +641,7 @@ func (a *API) listIntents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, object{
 		"object":   "list",
 		"data":     data,
-		"has_more": len(all) > len(page),
+		"has_more": hasMore,
 		"url":      "/v1/payment_intents",
 	})
 }

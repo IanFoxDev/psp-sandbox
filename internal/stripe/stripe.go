@@ -67,6 +67,7 @@ func New(e *engine.Engine, st *store.Store, opts Options) *API {
 // does not answer 404, as an unknown URL does on Stripe.
 func (a *API) Register(mux *http.ServeMux) {
 	a.registerIntents(mux)
+	a.registerRefunds(mux)
 	mux.Handle("/v1/", a.chain(http.HandlerFunc(a.unrecognized)))
 }
 
