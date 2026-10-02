@@ -1,12 +1,14 @@
 package stripe
 
 import (
+	"encoding/json"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ianfoxdev/psp-sandbox/internal/callback"
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 )
 
@@ -201,4 +203,19 @@ func (a *API) listEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, object{"object": "list", "data": page, "has_more": hasMore, "url": "/v1/events"})
+}
+
+// Webhooks encodes a domain event as the Stripe events sent for it, for the
+// callback dispatcher. Bodies are the same as GET /v1/events/{id} returns.
+func Webhooks(ev payment.Event) ([]callback.Message, error) {
+	parts := stripeEvents(ev)
+	out := make([]callback.Message, 0, len(parts))
+	for _, e := range parts {
+		body, err := json.Marshal(e)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, callback.Message{ID: e["id"].(string), Type: e["type"].(string), Body: body})
+	}
+	return out, nil
 }

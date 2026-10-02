@@ -16,6 +16,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
 	"github.com/ianfoxdev/psp-sandbox/internal/httpx"
 	"github.com/ianfoxdev/psp-sandbox/internal/ids"
+	"github.com/ianfoxdev/psp-sandbox/internal/payment"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 	"github.com/ianfoxdev/psp-sandbox/internal/signing"
 	"github.com/ianfoxdev/psp-sandbox/internal/store"
@@ -47,13 +48,28 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		clk = clock.NewManual(time.Now().UTC())
 	}
 
+	stripeProfile := cfg.Profile == config.ProfileStripe
 	secret := cfg.WebhookSecret
 	if secret == "" {
 		secret = signing.NewRandomSecret()
 	}
-	signer, err := signing.New(secret)
-	if err != nil {
-		return nil, fmt.Errorf("PSP_WEBHOOK_SECRET: %w", err)
+	var signer interface {
+		callback.Signer
+		Secret() string
+	}
+	var encode func(payment.Event) ([]callback.Message, error)
+	if stripeProfile {
+		s, err := signing.NewStripe(secret)
+		if err != nil {
+			return nil, fmt.Errorf("PSP_WEBHOOK_SECRET: %w", err)
+		}
+		signer, encode = s, stripe.Webhooks
+	} else {
+		s, err := signing.New(secret)
+		if err != nil {
+			return nil, fmt.Errorf("PSP_WEBHOOK_SECRET: %w", err)
+		}
+		signer = s
 	}
 
 	defaultSpec, err := scenario.ParseHeader(cfg.DefaultScenario)
@@ -75,6 +91,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	dispatcher := callback.New(callback.Options{
 		Clock:     clk,
 		Signer:    signer,
+		Encode:    encode,
 		IDs:       gen,
 		Retry:     cfg.RetrySchedule,
 		Rand:      ids.Rand(cfg.Seed, "jitter"),
@@ -87,7 +104,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		Rules:           rules,
 		DefaultScenario: defaultSpec,
 	}
-	if cfg.Profile == config.ProfileStripe {
+	if stripeProfile {
 		engCfg.PaymentPrefix, engCfg.RefundPrefix = "pi", "re"
 	}
 	eng, err := engine.New(engCfg, engine.Deps{Clock: clk, Store: st, Dispatcher: dispatcher, Catalog: catalog, IDs: gen, Log: log})
@@ -100,7 +117,11 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	if cfg.WebhookSecret == "" {
 		log.Warn("PSP_WEBHOOK_SECRET is not set, callbacks are signed with a random secret", "secret", secret)
 	}
-	if cfg.CallbackURL == "" {
+	switch {
+	case cfg.CallbackURL != "":
+	case stripeProfile:
+		log.Warn("PSP_CALLBACK_URL is not set, only payment intents with metadata[sandbox_callback_url] get webhooks")
+	default:
 		log.Warn("PSP_CALLBACK_URL is not set, only payments created with callback_url get callbacks")
 	}
 
@@ -111,7 +132,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(version + "\n"))
 	})
-	if cfg.Profile == config.ProfileStripe {
+	if stripeProfile {
 		stripe.New(eng, st, stripe.Options{
 			APIKey: cfg.APIKey, Seed: cfg.Seed, ManualClock: cfg.ManualClock, Log: log,
 		}).Register(mux)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -205,11 +206,12 @@ type Callback struct {
 }
 
 // Receiver is an application endpoint that records callbacks and checks their
-// signatures with Secret.
+// signatures with Secret, in the native or the Stripe scheme.
 type Receiver struct {
 	t      *testing.T
 	server *httptest.Server
 	signer *signing.Signer
+	stripe *signing.StripeSigner
 
 	mu      sync.Mutex
 	got     []Callback
@@ -224,7 +226,11 @@ func NewReceiver(t *testing.T) *Receiver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc := &Receiver{t: t, signer: signer, notify: make(chan struct{}, 1)}
+	stripeSigner, err := signing.NewStripe(Secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc := &Receiver{t: t, signer: signer, stripe: stripeSigner, notify: make(chan struct{}, 1)}
 	rc.server = httptest.NewServer(http.HandlerFunc(rc.serve))
 	t.Cleanup(rc.server.Close)
 	return rc
@@ -243,8 +249,6 @@ func (rc *Receiver) Respond(f func(c Callback) int) {
 func (rc *Receiver) serve(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
 	c := Callback{Header: r.Header, Body: body, Received: time.Now(), ID: r.Header.Get(signing.HeaderID)}
-	c.Timestamp, _ = strconv.ParseInt(r.Header.Get(signing.HeaderTimestamp), 10, 64)
-	c.Signed = r.Header.Get(signing.HeaderSignature) == rc.signer.Signature(c.ID, c.Timestamp, body)
 	var ev struct {
 		ID   string         `json:"id"`
 		Type string         `json:"type"`
@@ -252,6 +256,24 @@ func (rc *Receiver) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.Unmarshal(body, &ev)
 	c.Type, c.Data = ev.Type, ev.Data
+	if h := r.Header.Get(signing.HeaderStripeSignature); h != "" {
+		// Stripe: the id is in the body, the header is t=...,v1=...
+		c.ID = ev.ID
+		var sig string
+		for _, part := range strings.Split(h, ",") {
+			k, v, _ := strings.Cut(part, "=")
+			switch k {
+			case "t":
+				c.Timestamp, _ = strconv.ParseInt(v, 10, 64)
+			case "v1":
+				sig = v
+			}
+		}
+		c.Signed = sig != "" && sig == rc.stripe.Signature(c.Timestamp, body)
+	} else {
+		c.Timestamp, _ = strconv.ParseInt(r.Header.Get(signing.HeaderTimestamp), 10, 64)
+		c.Signed = r.Header.Get(signing.HeaderSignature) == rc.signer.Signature(c.ID, c.Timestamp, body)
+	}
 
 	rc.mu.Lock()
 	respond := rc.respond
