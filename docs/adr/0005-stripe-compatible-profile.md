@@ -200,8 +200,10 @@ Stripe event that was sent. Forcing an event by hand takes domain event names.
 ### How compatibility is checked
 
 1. Every response and every webhook body in the tests is validated against the
-   component schemas of the pinned `stripe/openapi` spec. The spec is downloaded in CI
-   at the pinned commit; the JSON Schema validator is a test-only dependency.
+   component schemas of the pinned `stripe/openapi` spec (`make contract`). The spec is
+   downloaded at the pinned commit and checked by sha256. The validator is a short
+   test file for the OpenAPI 3.0 keywords Stripe uses, with no dependency; on top of
+   the schema it rejects fields Stripe does not have.
 2. A CI job runs a script on each of stripe-php, stripe-go and stripe-node against the
    built image: create and confirm, decline as the SDK's card exception, manual
    capture, refund, webhook verification with the SDK's own `constructEvent`, and a
