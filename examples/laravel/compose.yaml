@@ -21,6 +21,16 @@ services:
     volumes:
       - ../scenarios.yaml:/etc/psp-sandbox/scenarios.yaml:ro
 
+  psp-stripe:
+    build: ../..
+    ports: ["8091:8090"] # web UI at http://localhost:8091/_sandbox/
+    environment:
+      PSP_PROFILE: stripe
+      PSP_WEBHOOK_SECRET: whsec_stripe_example
+      PSP_SCENARIOS_FILE: /etc/psp-sandbox/scenarios.yaml
+    volumes:
+      - ../scenarios.yaml:/etc/psp-sandbox/scenarios.yaml:ro
+
   app:
     build: { context: .., dockerfile: php.Dockerfile }
     # The whole repository is mounted: composer.json takes the PHP client from ../../clients/php.
@@ -39,3 +49,4 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       psp: { condition: service_healthy }
+      psp-stripe: { condition: service_healthy }

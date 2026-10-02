@@ -24,18 +24,36 @@ and the write; here `Warehouse::reserve()` stands in for that call and takes 200
 The safe handler calls the warehouse after its transaction commits, and only for the
 copy that applied the event.
 
+## The Laravel shop on Stripe
+
+The Laravel example also pays through the official `stripe/stripe-php`, against a second
+sandbox started with `PSP_PROFILE=stripe` (service `psp-stripe`, UI on port 8091). The
+only sandbox-specific line in the shop code is `api_base`. The same rules file picks the
+scenario, from `metadata[reference]`.
+
+`NaiveStripeWebhookController` and `SafeStripeWebhookController` handle
+`payment_intent.succeeded` with the same mistakes and the same fixes as the native
+pair; the safe one verifies `Stripe-Signature` with `\Stripe\Webhook::constructEvent()`.
+`tests/Feature/StripeWebhookTest.php` runs the three tests above against them, so the
+naive handler fails six tests in Laravel and three in Symfony.
+
+With `duplicate_callback` each copy is a pair of Stripe events (`charge.succeeded` and
+`payment_intent.succeeded`), so five copies are ten deliveries plus
+`payment_intent.created`.
+
 ## Run
 
 ```bash
 cd laravel   # or symfony
 docker compose up -d --build --wait
 docker compose exec app vendor/bin/phpunit                                  # safe: passes
-docker compose exec -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit    # naive: 3 failures
+docker compose exec -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit    # naive: 6 failures (Symfony: 3)
 docker compose down -v
 ```
 
 While it runs, the sandbox UI at http://localhost:8090/_sandbox/ shows every payment and
-every callback attempt. Both examples use port 8090, so run one at a time.
+every callback attempt; the Stripe one is on port 8091. Both examples use port 8090,
+so run one at a time.
 
 ## How it is wired
 
