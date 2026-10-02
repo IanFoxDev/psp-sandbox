@@ -231,3 +231,46 @@ func TestCreateSettlesAfterFirstStep(t *testing.T) {
 		t.Fatalf("events = %v, native create sends no payment.created", got)
 	}
 }
+
+func TestPrepareAndConfirmRefusedStoresNothing(t *testing.T) {
+	e, clk := newEngine(t)
+	req := CreateRequest{Amount: 1000, Currency: "EUR"}
+	conf := ConfirmRequest{Scenario: spec("server_error_then_success"), RetryKey: "key-1"}
+	var refused *RefusedError
+	if _, err := e.PrepareAndConfirm(req, conf); !errors.As(err, &refused) {
+		t.Fatalf("first call: %v", err)
+	}
+	if n := len(e.Payments("")); n != 0 {
+		t.Fatalf("%d payments after a refused call", n)
+	}
+	c, err := e.PrepareAndConfirm(req, conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clk.Advance(delay)
+	<-c.Settled
+	if got := eventTypes(t, e, c.Payment.ID); len(got) != 2 || got[0] != payment.EventPaymentCreated {
+		t.Fatalf("events = %v", got)
+	}
+}
+
+func TestAbandonOnlyUnconfirmedOrFailed(t *testing.T) {
+	e, clk := newEngine(t)
+	p, _ := e.Prepare(CreateRequest{Amount: 1000, Currency: "EUR"})
+	if got, err := e.Abandon(p.ID); err != nil || got.Status != payment.Canceled {
+		t.Fatalf("unconfirmed: %s %v", got.Status, err)
+	}
+	q, _ := e.Prepare(CreateRequest{Amount: 1000, Currency: "EUR"})
+	if _, err := e.Confirm(q.ID, ConfirmRequest{Scenario: spec("declined")}); err != nil {
+		t.Fatal(err)
+	}
+	clk.Advance(delay)
+	if got, err := e.Abandon(q.ID); err != nil || got.Status != payment.Canceled || got.FailureReason == "" {
+		t.Fatalf("failed: %+v %v", got, err)
+	}
+	c, _ := e.Create(CreateRequest{Amount: 1000, Currency: "EUR"})
+	clk.Advance(delay)
+	if _, err := e.Abandon(c.Payment.ID); !errors.Is(err, payment.ErrInvalidState) {
+		t.Fatalf("captured: %v", err)
+	}
+}

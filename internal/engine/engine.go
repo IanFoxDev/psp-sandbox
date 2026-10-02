@@ -45,6 +45,9 @@ type Config struct {
 	Rules *scenario.Rules
 	// DefaultScenario applies when a request names none and no rule matches.
 	DefaultScenario scenario.Spec
+	// PaymentPrefix and RefundPrefix start new ids. Defaults: pay, ref.
+	PaymentPrefix string
+	RefundPrefix  string
 }
 
 // Engine runs payments. It is safe for concurrent use.
@@ -84,6 +87,12 @@ func New(cfg Config, d Deps) (*Engine, error) {
 	if d.Log == nil {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
+	if cfg.PaymentPrefix == "" {
+		cfg.PaymentPrefix = "pay"
+	}
+	if cfg.RefundPrefix == "" {
+		cfg.RefundPrefix = "ref"
+	}
 	return &Engine{
 		cfg:        cfg,
 		clock:      d.Clock,
@@ -105,6 +114,9 @@ type CreateRequest struct {
 	Capture     payment.CaptureMode
 	CallbackURL string
 	Metadata    map[string]string
+	// PaymentMethod and Description are kept for APIs that have them.
+	PaymentMethod string
+	Description   string
 	// Scenario is nil when the request did not name one.
 	Scenario *scenario.Spec
 	// RetryKey tells retries of one request apart from new requests, for
@@ -201,15 +213,38 @@ func (e *Engine) Confirm(id string, req ConfirmRequest) (Created, error) {
 	if err := e.refuseIf(sc, req.RetryKey); err != nil {
 		return Created{}, err
 	}
+	return e.confirm(id, req.PaymentMethod, sc)
+}
 
+// PrepareAndConfirm is Prepare followed by Confirm in one call, for APIs that
+// create and confirm in one request. The scenario is picked before anything is
+// stored, so a refused call leaves nothing behind, as Create does.
+func (e *Engine) PrepareAndConfirm(req CreateRequest, c ConfirmRequest) (Created, error) {
+	sc, err := e.pick(c.Scenario, scenario.Input{
+		Amount: req.Amount, Currency: req.Currency, Reference: req.Reference, Metadata: req.Metadata,
+	})
+	if err != nil {
+		return Created{}, err
+	}
+	if err := e.refuseIf(sc, c.RetryKey); err != nil {
+		return Created{}, err
+	}
+	p, err := e.Prepare(req)
+	if err != nil {
+		return Created{}, err
+	}
+	return e.confirm(p.ID, c.PaymentMethod, sc)
+}
+
+func (e *Engine) confirm(id, paymentMethod string, sc scenario.Scenario) (Created, error) {
 	e.mu.Lock()
 	now := e.now()
 	p, err := e.store.UpdatePayment(id, func(p *payment.Payment) error {
 		if err := p.Confirm(now); err != nil {
 			return err
 		}
-		if req.PaymentMethod != "" {
-			p.PaymentMethod = req.PaymentMethod
+		if paymentMethod != "" {
+			p.PaymentMethod = paymentMethod
 		}
 		p.Scenario = sc.Name()
 		return nil
@@ -224,6 +259,15 @@ func (e *Engine) Confirm(id string, req ConfirmRequest) (Created, error) {
 
 	e.log.Info("payment confirmed", "payment", p.ID, "attempt", p.Attempt, "scenario", sc.Name())
 	return e.start(gen, p, sc), nil
+}
+
+// CheckScenario reports whether spec names a known scenario with valid
+// parameters, for APIs that take a scenario before they use it.
+func (e *Engine) CheckScenario(spec scenario.Spec) error {
+	if _, err := e.catalog.Build(spec); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidScenario, err)
+	}
+	return nil
 }
 
 // pick builds the requested scenario, or the one the rules give for in, or
@@ -252,7 +296,7 @@ func (e *Engine) refuseIf(sc scenario.Scenario, key string) error {
 func (e *Engine) newPayment(req CreateRequest, status payment.Status) payment.Payment {
 	now := e.now()
 	p := payment.Payment{
-		ID:          e.ids.Next("pay"),
+		ID:          e.ids.Next(e.cfg.PaymentPrefix),
 		Status:      status,
 		Amount:      req.Amount,
 		Currency:    req.Currency,
@@ -262,6 +306,9 @@ func (e *Engine) newPayment(req CreateRequest, status payment.Status) payment.Pa
 		UpdatedAt:   now,
 		Metadata:    req.Metadata,
 		CallbackURL: req.CallbackURL,
+
+		PaymentMethod: req.PaymentMethod,
+		Description:   req.Description,
 	}
 	if p.Capture == "" {
 		p.Capture = payment.CaptureAuto
@@ -457,6 +504,39 @@ func (e *Engine) Capture(id string, amount int64) (payment.Payment, error) {
 	return p, nil
 }
 
+// Update changes fields of a payment that are not its state, such as metadata,
+// or the amount before confirmation. f must not change the status; it returns
+// an error to leave the payment as it was.
+func (e *Engine) Update(id string, f func(p *payment.Payment) error) (payment.Payment, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	return e.store.UpdatePayment(id, func(p *payment.Payment) error {
+		before := p.Status
+		if err := f(p); err != nil {
+			return err
+		}
+		if p.Status != before {
+			return fmt.Errorf("%w: Update cannot change the status", payment.ErrInvalidState)
+		}
+		p.UpdatedAt = now
+		return nil
+	})
+}
+
+// Abandon cancels an unconfirmed or failed payment and sends payment.canceled.
+func (e *Engine) Abandon(id string) (payment.Payment, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	p, err := e.store.UpdatePayment(id, func(p *payment.Payment) error { return p.Abandon(now) })
+	if err != nil {
+		return p, err
+	}
+	e.emitPaymentLocked(p)
+	return p, nil
+}
+
 // Cancel voids a pending or authorized payment.
 func (e *Engine) Cancel(id string) (payment.Payment, error) {
 	e.mu.Lock()
@@ -481,7 +561,7 @@ func (e *Engine) Refund(paymentID string, amount int64, reference string) (payme
 			return payment.Refund{}, err
 		}
 		return payment.Refund{
-			ID:        e.ids.Next("ref"),
+			ID:        e.ids.Next(e.cfg.RefundPrefix),
 			PaymentID: p.ID,
 			Status:    payment.RefundPending,
 			Amount:    amount,

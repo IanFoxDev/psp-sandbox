@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"slices"
 	"time"
 )
 
@@ -99,11 +100,19 @@ type Payment struct {
 	// Attempt counts confirmations: 0 while unconfirmed, then 1, and one more
 	// for each retry after a failure.
 	Attempt int `json:"-"`
+	// ConfirmedAt is when the current attempt started.
+	ConfirmedAt time.Time `json:"-"`
+	// PastFailures holds the decline reasons of earlier attempts, oldest first.
+	PastFailures []string `json:"-"`
+	// Description and CancellationReason are kept for APIs that have them.
+	Description        string `json:"-"`
+	CancellationReason string `json:"-"`
 }
 
 // Clone returns a copy that shares no memory with p.
 func (p Payment) Clone() Payment {
 	p.Metadata = maps.Clone(p.Metadata)
+	p.PastFailures = slices.Clone(p.PastFailures)
 	return p
 }
 
@@ -129,12 +138,29 @@ func (p *Payment) Confirm(at time.Time) error {
 	case Failed:
 		p.Status = Pending
 		p.UpdatedAt = at
+		p.PastFailures = append(p.PastFailures, p.FailureReason)
 		p.FailureReason = ""
 	default:
 		return fmt.Errorf("%w: payment is %s, only unconfirmed or failed payments can be confirmed", ErrInvalidState, p.Status)
 	}
 	p.Attempt++
+	p.ConfirmedAt = at
 	return nil
+}
+
+// Abandon cancels a payment that is unconfirmed or failed, which an API with
+// retries after failure allows. The native API never calls it: there a failed
+// payment stays failed.
+func (p *Payment) Abandon(at time.Time) error {
+	switch p.Status {
+	case Unconfirmed:
+		return p.Become(Canceled, at)
+	case Failed:
+		p.Status = Canceled
+		p.UpdatedAt = at
+		return nil
+	}
+	return fmt.Errorf("%w: payment is %s, only unconfirmed or failed payments can be abandoned", ErrInvalidState, p.Status)
 }
 
 // Authorize moves a pending payment to authorized.
