@@ -1,0 +1,26 @@
+name: compat
+
+on:
+  push:
+    branches: [master]
+    paths: ["compat/**", "cmd/**", "internal/**", "Dockerfile", ".github/workflows/compat.yml"]
+  pull_request:
+    paths: ["compat/**", "cmd/**", "internal/**", "Dockerfile", ".github/workflows/compat.yml"]
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [php, go, node]
+    defaults:
+      run:
+        working-directory: compat
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker compose up --build --quiet-pull --exit-code-from ${{ matrix.sdk }} ${{ matrix.sdk }}
+      - if: failure()
+        run: docker compose logs psp
+      - if: always()
+        run: docker compose down -v
