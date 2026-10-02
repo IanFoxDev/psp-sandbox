@@ -151,8 +151,8 @@ func (d *Dispatcher) clear() {
 // Send queues event e for delivery to url according to plan. An event may
 // become several messages (see Options.Encode); each one is delivered with
 // the plan. The returned channel is closed once the first attempt of the
-// first copy of the first message has finished (or right away if it is
-// dropped), so a caller can wait until the application has seen the callback.
+// first copy of every message has finished (or right away for dropped ones),
+// so a caller can wait until the application has seen the whole event.
 func (d *Dispatcher) Send(e payment.Event, url string, plan Plan) <-chan struct{} {
 	msgs, err := d.opts.Encode(e)
 	if err != nil || len(msgs) == 0 {
@@ -167,14 +167,21 @@ func (d *Dispatcher) Send(e payment.Event, url string, plan Plan) <-chan struct{
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	var first <-chan struct{}
-	for i, m := range msgs {
-		j := d.sendLocked(m, e.PaymentID, url, plan, now)
-		if i == 0 {
-			first = j.first
-		}
+	if len(msgs) == 1 {
+		return d.sendLocked(msgs[0], e.PaymentID, url, plan, now).first
 	}
-	return first
+	firsts := make([]chan struct{}, len(msgs))
+	for i, m := range msgs {
+		firsts[i] = d.sendLocked(m, e.PaymentID, url, plan, now).first
+	}
+	all := make(chan struct{})
+	go func() {
+		for _, f := range firsts {
+			<-f
+		}
+		close(all)
+	}()
+	return all
 }
 
 func encodeEvent(e payment.Event) ([]Message, error) {

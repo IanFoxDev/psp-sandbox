@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -142,18 +143,30 @@ func TestLostCallbackSendsNothingAfterCreate(t *testing.T) {
 
 func TestCallbackBeforeResponse(t *testing.T) {
 	s := newStripe(t)
+	// The app takes a while over payment_intent.succeeded, the event handlers
+	// act on. The confirm answer must wait until it has been handled, not only
+	// until the first event of the capture (charge.succeeded) has.
+	var mu sync.Mutex
+	var handled time.Time
+	s.Receiver.Respond(func(c sandboxtest.Callback) int {
+		if c.Type == "payment_intent.succeeded" {
+			time.Sleep(200 * time.Millisecond)
+			mu.Lock()
+			handled = time.Now()
+			mu.Unlock()
+		}
+		return 200
+	})
 	r := s.create(visa + "&metadata[sandbox_scenario]=callback_before_response")
 	answered := time.Now()
-	id := intentOf(r)
-	for _, c := range s.Receiver.All() {
-		if c.Type == "charge.succeeded" {
-			if !c.Received.Before(answered) {
-				t.Errorf("charge.succeeded arrived after the confirm answer")
-			}
-			return
-		}
+	if r.status != 200 {
+		t.Fatalf("create: %d %v", r.status, r.body)
 	}
-	t.Errorf("no charge.succeeded before the answer: %v", hooks(t, s.Receiver.All(), id))
+	mu.Lock()
+	defer mu.Unlock()
+	if handled.IsZero() || !answered.After(handled) {
+		t.Errorf("answered at %v, payment_intent.succeeded handled at %v", answered, handled)
+	}
 }
 
 func TestTimeoutThenSuccessStillSendsWebhooks(t *testing.T) {
