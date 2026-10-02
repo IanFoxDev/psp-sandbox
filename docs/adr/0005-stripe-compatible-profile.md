@@ -113,19 +113,27 @@ becomes `IdempotencyException` in stripe-php), `401` authentication, `402` card 
 
 ### Retries
 
-The SDKs retry on connection errors, timeouts, `409` and `5xx`, and obey
-`Stripe-Should-Retry` when it is present. Defaults differ: stripe-go and stripe-node retry
-twice and send an `Idempotency-Key` on every POST; stripe-php does not retry
-(`max_network_retries` defaults to 0) and sends no key unless retries are on.
+What the SDKs do, as the checks in `compat/` found (not only as their code reads):
+
+- stripe-node retries connection errors, timeouts, `409` and `5xx` (twice by default),
+  obeys `Stripe-Should-Retry`, and sends an `Idempotency-Key` on every POST.
+- stripe-php does not retry by default (`max_network_retries` = 0). With retries on, it
+  retries like stripe-node, but sends an `Idempotency-Key` only when the global
+  `\Stripe\Stripe::setMaxNetworkRetries()` is above 0: `max_network_retries` on
+  `StripeClient` alone retries POSTs without a key.
+- stripe-go retries connection errors and timeouts (twice by default) with an
+  `Idempotency-Key` on every POST, but not `5xx` or `409`: an error answer becomes
+  `*stripe.Error`, whose `canRetry` allows only 429 `lock_timeout`, so the status and
+  `Stripe-Should-Retry` are never looked at.
 
 `server_error_then_success` answers `500`/`503` with type `api_error` and
 `Stripe-Should-Retry: true`, which is the truth: nothing was created and a retry is safe.
-With stripe-php defaults the test sees the exception; with retries on, it sees one
-payment. That difference is the point of the scenario.
+Which SDK settings get through it is what the scenario shows.
 
 `timeout_then_success` must hold the answer past the SDK timeout, which is 80 seconds by
-default in all three SDKs. Tests set a short client timeout, as they do for the native
-API.
+default in all three SDKs. Tests set a short client timeout. A retry with the same
+`Idempotency-Key` gets the stored answer; a retry without one creates another payment,
+as it would on Stripe.
 
 ### Picking a scenario
 
