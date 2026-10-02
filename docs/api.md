@@ -1,5 +1,8 @@
 # API
 
+This page describes the native profile. With `PSP_PROFILE=stripe` the provider API is
+Stripe's instead, see [stripe.md](stripe.md); the control API below is the same.
+
 The sandbox exposes two APIs on the same port (default `8090`):
 
 - **Provider API** (`/v1/*`): what your application calls, shaped like a typical card
@@ -302,13 +305,14 @@ under `/_sandbox/ui/` are for the browser; tests should use the JSON endpoints a
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `PSP_PROFILE` | `native` | Provider API: `native` (this page) or `stripe` ([stripe.md](stripe.md)). |
 | `PSP_ADDR` | `:8090` | Listen address. |
 | `PSP_API_KEY` | empty | If set, required bearer key. |
 | `PSP_CALLBACK_URL` | empty | Default callback URL, absolute http or https. A payment's `callback_url` overrides it. |
-| `PSP_WEBHOOK_SECRET` | random at start | Base64 secret for signing, `whsec_` prefix optional. Printed to the log if random. |
+| `PSP_WEBHOOK_SECRET` | random at start | Signing secret. Native: base64, `whsec_` prefix optional. Stripe: any non-empty string. Printed to the log if random. |
 | `PSP_SCENARIOS_FILE` | empty | Path to a rules file, see [scenarios.md](scenarios.md). |
 | `PSP_DEFAULT_SCENARIO` | `happy_path` | Scenario when neither header nor rule matches. Takes parameters like the header: `duplicate_callback; times=3`. |
-| `PSP_PROCESSING_DELAY` | `200ms` | Time between create and the first status change, and until a refund settles. |
+| `PSP_PROCESSING_DELAY` | `200ms`, `0s` with `stripe` | Time between create (or confirm) and the first status change, and until a refund settles. |
 | `PSP_RETRY_SCHEDULE` | `0s,5s,30s,2m,10m,1h` | Pause before each callback attempt, see [callbacks.md](callbacks.md#delivery-and-retries). |
 | `PSP_CLOCK` | `real` | `manual` enables `/_sandbox/clock/advance`. |
 | `PSP_SEED` | random | Seed for ids and jitter. Same seed, same ids. |

@@ -1,5 +1,9 @@
 # Callbacks and signing
 
+This page describes the native profile. In the stripe profile the bodies are Stripe
+events signed with `Stripe-Signature`, see [stripe.md](stripe.md#webhooks); delivery and
+retries below are the same.
+
 ## Event body
 
 ```json

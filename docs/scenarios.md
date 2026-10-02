@@ -11,6 +11,9 @@ Order of precedence:
 2. First matching rule in `PSP_SCENARIOS_FILE`.
 3. `PSP_DEFAULT_SCENARIO` (default `happy_path`).
 
+In the stripe profile `metadata[sandbox_scenario]` and Stripe's test cards come between
+the header and the rules, see [stripe.md](stripe.md#picking-a-scenario).
+
 Header format: `name; key=value; key=value`. Durations use Go syntax (`500ms`, `35s`, `2m`).
 
 The chosen scenario is stored on the payment and applies to its refunds and later events.

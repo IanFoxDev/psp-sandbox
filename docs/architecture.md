@@ -13,18 +13,20 @@ internal/payment/       domain: Payment, Refund, statuses, allowed transitions
 internal/ids/           prefixed ids (pay_, evt_, ...), reproducible with PSP_SEED
 internal/store/         in-memory storage for payments, refunds, events, idempotency keys
 internal/scenario/      Scenario interface, catalog, header parsing, rules file
-internal/signing/       Standard Webhooks signer
+internal/signing/       Standard Webhooks and Stripe-Signature signers
 internal/callback/      dispatcher: per-payment ordered queue, retries, delivery log
 internal/engine/        creates payments, runs scenario steps on the clock, emits events
 internal/app/           wiring from Config to an http.Handler, shared by main and tests
 internal/sandboxtest/   test helpers: a full sandbox plus a signed-callback receiver
-internal/api/           provider API handlers (/v1/*)
+internal/api/           native provider API handlers (/v1/*)
+internal/stripe/        Stripe-compatible provider API, its events and webhook bodies
 internal/control/       control API handlers (/_sandbox/*)
 internal/httpx/         JSON and error helpers shared by both APIs
 internal/ui/            embedded web UI (html/template and forms, no JavaScript)
 scenarios/              example rules files
 clients/php/            PHP client, published as a separate package
 examples/               Laravel and Symfony apps wired to the sandbox
+compat/                 official Stripe SDKs run against the stripe profile
 ```
 
 ## Request flow
@@ -52,6 +54,12 @@ the network. Everything about the payment (status changes, delayed callbacks, re
 uses the sandbox clock, so `PSP_CLOCK=manual` controls it. The `webhook-timestamp` of a
 callback is always wall-clock time: receivers compare it with their own clock.
 
+With `PSP_PROFILE=stripe` the same engine sits behind `internal/stripe`: a PaymentIntent
+is created unconfirmed and the scenario starts at confirm, the answer waits for the
+first status step, and the dispatcher turns each domain event into one or more Stripe
+events (`Options.Encode`) signed with `Stripe-Signature`. See
+[ADR 0005](adr/0005-stripe-compatible-profile.md).
+
 The `Scenario` interface has two hooks: one for the synchronous part (the HTTP answer and
 the schedule of status changes) and one for the asynchronous part (how each event is
 delivered). Most scenarios override only one of them. A scenario that fails the create
@@ -69,5 +77,8 @@ call itself, before any payment exists, also implements `Refuser`.
 - **In-memory state.** Tests need a clean sandbox, not durability. A persistent store
   would need an interface extracted from `store.Store`; nobody has needed a
   long-running instance so far.
+- **Profiles over one engine.** The Stripe-compatible API is a second HTTP layer and a
+  second event encoder; scenarios, the clock and the dispatcher are shared, so every
+  scenario works in both. See [ADR 0005](adr/0005-stripe-compatible-profile.md).
 - **Manual clock.** Scenarios with delays of hours (chargebacks) are tested without
   waiting: the test advances the clock.
