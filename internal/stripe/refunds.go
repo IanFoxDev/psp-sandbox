@@ -14,18 +14,11 @@ var refundReasons = []string{"duplicate", "fraudulent", "requested_by_customer"}
 
 // renderRefund returns the refund; p is its payment, for the charge id.
 func renderRefund(r payment.Refund, p payment.Payment) object {
-	var failure any
-	if r.Status == payment.RefundFailed {
-		failure = "unknown"
-		if strings.Contains(r.FailureReason, "disputed") || strings.Contains(r.FailureReason, "chargeback") {
-			failure = "charge_for_pending_refund_disputed"
-		}
-	}
 	md := r.Metadata
 	if md == nil {
 		md = map[string]string{}
 	}
-	return object{
+	out := object{
 		"id":                  r.ID,
 		"object":              "refund",
 		"amount":              r.Amount,
@@ -33,13 +26,20 @@ func renderRefund(r payment.Refund, p payment.Payment) object {
 		"charge":              chargeID(p, p.Attempt),
 		"created":             unix(r.CreatedAt),
 		"currency":            strings.ToLower(r.Currency),
-		"failure_reason":      failure,
 		"metadata":            md,
 		"payment_intent":      p.ID,
 		"reason":              nullable(r.Reason),
 		"receipt_number":      nil,
 		"status":              string(r.Status),
 	}
+	// Stripe sends failure_reason only on a failed refund; it is not nullable.
+	if r.Status == payment.RefundFailed {
+		out["failure_reason"] = "unknown"
+		if strings.Contains(r.FailureReason, "disputed") || strings.Contains(r.FailureReason, "chargeback") {
+			out["failure_reason"] = "charge_for_pending_refund_disputed"
+		}
+	}
+	return out
 }
 
 func (a *API) registerRefunds(mux *http.ServeMux) {
