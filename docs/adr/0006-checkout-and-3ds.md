@@ -70,7 +70,12 @@ pointed at the sandbox, so the sandbox always gives a redirect, with `return_url
 if there was none. The event is `payment_intent.requires_action`. A failed
 authentication leaves the PaymentIntent in `requires_payment_method` with
 `last_payment_error.code = payment_intent_authentication_failure` (a code stripe-go
-lists) and sends `payment_intent.payment_failed`.
+lists) and sends `payment_intent.payment_failed`. While the PaymentIntent waits, and
+after a failed authentication, it has no `latest_charge`.
+
+When the 3DS page sends the customer back, the sandbox adds what Stripe adds to
+`return_url`: `payment_intent`, `payment_intent_client_secret` and `redirect_status`
+(`succeeded` or `failed`).
 
 ### Checkout Sessions, stripe profile only
 
@@ -153,6 +158,8 @@ Checkout in `setup` or `subscription` mode, embedded Checkout, Adyen.
 
 - Whether a failed authentication also produces a failed charge. The sandbox sends no
   `charge.failed` for it.
+- The `type` of `last_payment_error` after a failed authentication. The sandbox uses
+  `invalid_request_error`, as with other `payment_intent_*` codes.
 - The exact order of `checkout.session.completed` relative to the PaymentIntent events.
   Stripe does not promise an order, so handlers must not depend on it either way.
 

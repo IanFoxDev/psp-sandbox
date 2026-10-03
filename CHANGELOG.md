@@ -15,6 +15,13 @@ such changes are marked **BREAKING**.
   then back to the payment's `return_url`) or a test calls
   `POST /_sandbox/payments/{id}/authenticate`. A failed authentication fails the payment
   with `authentication_failed`.
+- 3DS in the stripe profile: `pm_card_threeDSecure2Required`,
+  `pm_card_authenticationRequired` and `pm_card_threeDSecureRequiredChargeDeclined` put the
+  PaymentIntent in `requires_action` with `next_action.redirect_to_url` to the sandbox's
+  3DS page; `return_url` on create and confirm; `payment_intent.requires_action`; a failed
+  authentication gives `payment_intent_authentication_failure`. Coming back from the page
+  adds `payment_intent`, `payment_intent_client_secret` and `redirect_status` to
+  `return_url`, as Stripe does.
 - `PSP_PUBLIC_URL`: where a browser reaches the sandbox, for links to its pages.
 - PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
   `Payment::$actionUrl`, `returnUrl` on `createPayment()`.
