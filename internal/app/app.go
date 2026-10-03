@@ -141,7 +141,11 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
 	}
 	control.New(eng, dispatcher, catalog, clk).Register(mux)
-	ui.New(eng, dispatcher, clk, log).Register(mux)
+	pages := ui.New(eng, dispatcher, clk, log)
+	if stripeProfile {
+		pages.SetReturnParams(stripe.ReturnParams)
+	}
+	pages.Register(mux)
 
 	return &App{
 		Handler:    httpx.Routes(mux),

@@ -111,6 +111,15 @@ func TestContract(t *testing.T) {
 	c.call("GET", intent, intents+"/"+id(disputed)+"?expand[]=latest_charge", "")
 	box.Do("POST", "/_sandbox/clock/advance", map[string]any{"seconds": 31 * 24 * 3600})
 
+	// 3DS: waiting, authenticated, failed.
+	waiting := c.call("POST", intents, intents, "amount=1000&currency=eur&confirm=true&payment_method=pm_card_threeDSecure2Required&return_url=https%3A%2F%2Fshop.test%2Freturn")
+	c.call("GET", intent, intents+"/"+id(waiting), "")
+	box.Do("POST", "/_sandbox/payments/"+id(waiting)+"/authenticate", map[string]any{"result": "success"})
+	c.call("GET", intent, intents+"/"+id(waiting)+"?expand[]=latest_charge", "")
+	failedAuth := c.call("POST", intents, intents, "amount=1000&currency=eur&confirm=true&payment_method=pm_card_authenticationRequired")
+	box.Do("POST", "/_sandbox/payments/"+id(failedAuth)+"/authenticate", map[string]any{"result": "failure"})
+	c.call("GET", intent, intents+"/"+id(failedAuth), "")
+
 	// Lists.
 	c.call("GET", intents, intents+"?limit=3", "")
 	c.call("GET", "/v1/events", "/v1/events?limit=2&type=charge.*", "")
@@ -153,7 +162,7 @@ func TestContract(t *testing.T) {
 		c.call("GET", "/v1/events/{id}", "/v1/events/"+id(e), "")
 	}
 	for _, typ := range []string{
-		"payment_intent.created", "payment_intent.succeeded", "payment_intent.payment_failed",
+		"payment_intent.created", "payment_intent.requires_action", "payment_intent.succeeded", "payment_intent.payment_failed",
 		"payment_intent.canceled", "payment_intent.amount_capturable_updated",
 		"charge.succeeded", "charge.failed", "charge.captured", "charge.refunded",
 		"refund.created", "charge.dispute.created", "charge.dispute.closed",

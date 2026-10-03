@@ -17,6 +17,11 @@ var testCards = map[string]scenario.Spec{
 	"pm_card_chargeDeclinedExpiredCard":            declinedWith("expired_card"),
 	"pm_card_chargeDeclinedIncorrectCvc":           declinedWith("incorrect_cvc"),
 	"pm_card_chargeDeclinedProcessingError":        declinedWith("processing_error"),
+	// 3D Secure: the PaymentIntent waits in requires_action until the customer
+	// authenticates on the sandbox page or through the control API.
+	"pm_card_threeDSecure2Required":              {Name: "three_d_secure"},
+	"pm_card_authenticationRequired":             {Name: "three_d_secure"},
+	"pm_card_threeDSecureRequiredChargeDeclined": {Name: "three_d_secure", Params: map[string]string{"outcome": "declined"}},
 	// Stripe opens the dispute within moments of the payment.
 	"pm_card_createDispute": {Name: "chargeback_after", Params: map[string]string{"delay": "1s"}},
 }
@@ -53,6 +58,9 @@ func declineFor(reason string) decline {
 		return decline{"incorrect_cvc", "", "Your card's security code is incorrect."}
 	case "processing_error":
 		return decline{"processing_error", "", "An error occurred while processing your card. Try again in a little bit."}
+	case "authentication_failed":
+		return decline{"payment_intent_authentication_failure", "",
+			"We are unable to authenticate your payment method. Please choose a different payment method and try again."}
 	case "fraud_suspected":
 		return decline{"card_declined", "fraudulent", declined}
 	case "lost_card", "stolen_card", "do_not_honor", "generic_decline":

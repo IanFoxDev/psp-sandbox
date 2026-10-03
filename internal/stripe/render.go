@@ -1,6 +1,7 @@
 package stripe
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,8 @@ func intentStatus(p payment.Payment) string {
 		return "requires_confirmation"
 	case payment.Pending:
 		return "processing"
+	case payment.RequiresAction:
+		return "requires_action"
 	case payment.Authorized:
 		return "requires_capture"
 	case payment.Failed:
@@ -89,8 +92,10 @@ func parseChargeID(id string) (paymentID string, attempt int, ok bool) {
 	return "pi_" + rest, attempt, true
 }
 
+// latestCharge is the charge of the current attempt. An attempt that waits
+// for authentication, or failed it, has no charge yet.
 func latestCharge(p payment.Payment) string {
-	if p.Attempt == 0 {
+	if p.Attempt == 0 || p.Status == payment.RequiresAction || authFailed(p) {
 		return ""
 	}
 	return chargeID(p, p.Attempt)
@@ -98,10 +103,46 @@ func latestCharge(p payment.Payment) string {
 
 // lastError is the last_payment_error of a failed attempt, also the body of
 // the 402 answer.
+func authFailed(p payment.Payment) bool {
+	return p.Status == payment.Failed && p.FailureReason == "authentication_failed"
+}
+
 func lastError(p payment.Payment, reason string) Error {
 	d := declineFor(reason)
-	return Error{Type: TypeCard, Code: d.code, DeclineCode: d.declineCode, Message: d.message,
+	typ := TypeCard
+	if reason == "authentication_failed" {
+		typ = TypeInvalidRequest
+	}
+	return Error{Type: typ, Code: d.code, DeclineCode: d.declineCode, Message: d.message,
 		Charge: latestCharge(p)}
+}
+
+// nextAction is what the app does while the PaymentIntent requires action:
+// send the customer to the sandbox's 3DS page. Stripe gives use_stripe_sdk
+// when there is no return_url; Stripe.js cannot be pointed at the sandbox,
+// so it is always a redirect here.
+func nextAction(p payment.Payment) any {
+	if p.Status != payment.RequiresAction {
+		return nil
+	}
+	return object{
+		"type":            "redirect_to_url",
+		"redirect_to_url": object{"url": p.ActionURL, "return_url": nullable(p.ReturnURL)},
+	}
+}
+
+// ReturnParams are the query parameters Stripe adds to return_url when the
+// customer comes back from authentication.
+func ReturnParams(p payment.Payment) url.Values {
+	status := "succeeded"
+	if p.Status == payment.Failed || p.Status == payment.Canceled {
+		status = "failed"
+	}
+	return url.Values{
+		"payment_intent":               {p.ID},
+		"payment_intent_client_secret": {p.ID + "_secret_sandbox"},
+		"redirect_status":              {status},
+	}
 }
 
 // renderIntent returns the PaymentIntent. With expandCharge, latest_charge
@@ -142,7 +183,7 @@ func renderIntent(p payment.Payment, expandCharge bool) object {
 		"latest_charge":        latest,
 		"livemode":             false,
 		"metadata":             metadataOf(p),
-		"next_action":          nil,
+		"next_action":          nextAction(p),
 		"payment_method":       nullable(p.PaymentMethod),
 		"payment_method_types": []string{"card"},
 		"processing":           nil,

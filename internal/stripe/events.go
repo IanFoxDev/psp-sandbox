@@ -33,6 +33,8 @@ func stripeEvents(ev payment.Event) []object {
 	switch ev.Type {
 	case payment.EventPaymentCreated:
 		parts = []eventPart{{"payment_intent.created", intent()}}
+	case payment.EventPaymentActionRequired:
+		parts = []eventPart{{"payment_intent.requires_action", intent()}}
 	case payment.EventPaymentAuthorized:
 		parts = []eventPart{{"charge.succeeded", charge()}, {"payment_intent.amount_capturable_updated", intent()}}
 	case payment.EventPaymentCaptured:
@@ -43,6 +45,10 @@ func stripeEvents(ev payment.Event) []object {
 		parts = []eventPart{first, {"payment_intent.succeeded", intent()}}
 	case payment.EventPaymentFailed:
 		parts = []eventPart{{"charge.failed", charge()}, {"payment_intent.payment_failed", intent()}}
+		if authFailed(p) {
+			// No charge is made when the customer fails authentication.
+			parts = parts[1:]
+		}
 	case payment.EventPaymentCanceled:
 		parts = []eventPart{{"payment_intent.canceled", intent()}}
 	case payment.EventRefundSucceeded:

@@ -35,6 +35,9 @@ type UI struct {
 	index      *template.Template
 	payment    *template.Template
 	threeDS    *template.Template
+	// returnParams, if set, adds query parameters to return_url when the
+	// customer leaves the 3DS page, as the provider would.
+	returnParams func(payment.Payment) url.Values
 }
 
 // New returns the web UI.
@@ -47,6 +50,11 @@ func New(e *engine.Engine, d *callback.Dispatcher, clk clock.Clock, log *slog.Lo
 	}
 	return &UI{engine: e, dispatcher: d, clock: clk, log: log, index: page("index.html"), payment: page("payment.html"),
 		threeDS: page("3ds.html")}
+}
+
+// SetReturnParams sets the query parameters added to return_url after 3DS.
+func (u *UI) SetReturnParams(f func(payment.Payment) url.Values) {
+	u.returnParams = f
 }
 
 // Register adds the UI routes to mux.
@@ -244,10 +252,26 @@ func (u *UI) authenticate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if p.ReturnURL != "" {
-		http.Redirect(w, r, p.ReturnURL, http.StatusSeeOther)
+		http.Redirect(w, r, u.returnURL(p), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/_sandbox/ui/3ds/"+url.PathEscape(id), http.StatusSeeOther)
+}
+
+func (u *UI) returnURL(p payment.Payment) string {
+	if u.returnParams == nil {
+		return p.ReturnURL
+	}
+	target, err := url.Parse(p.ReturnURL)
+	if err != nil {
+		return p.ReturnURL
+	}
+	q := target.Query()
+	for k, vs := range u.returnParams(p) {
+		q[k] = vs
+	}
+	target.RawQuery = q.Encode()
+	return target.String()
 }
 
 func (u *UI) replay(w http.ResponseWriter, r *http.Request) {

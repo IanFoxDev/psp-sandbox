@@ -114,6 +114,19 @@ func (a *API) metadataParams(p *Params) (map[string]string, bool, error) {
 	return md, true, nil
 }
 
+// returnURLParam reads return_url, where the 3DS page sends the customer back.
+func returnURLParam(p *Params) (string, error) {
+	v, ok, err := p.String("return_url")
+	if err != nil || !ok || v == "" {
+		return "", err
+	}
+	u, perr := url.Parse(v)
+	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", &ParamError{Code: "url_invalid", Param: "return_url", Message: "Not a valid URL: " + v}
+	}
+	return v, nil
+}
+
 // paymentMethodParam reads payment_method; an id Stripe would not know is 404.
 func paymentMethodParam(w http.ResponseWriter, p *Params) (string, bool) {
 	pm, ok, err := p.String("payment_method")
@@ -198,6 +211,11 @@ func (a *API) createIntent(w http.ResponseWriter, r *http.Request) {
 		writeParamError(w, err)
 		return
 	}
+	returnURL, err := returnURLParam(p)
+	if err != nil {
+		writeParamError(w, err)
+		return
+	}
 	expand, err := a.expandsCharge(endpoint, p)
 	if err != nil {
 		writeParamError(w, err)
@@ -214,6 +232,7 @@ func (a *API) createIntent(w http.ResponseWriter, r *http.Request) {
 		Metadata:      md,
 		PaymentMethod: pm,
 		Description:   description,
+		ReturnURL:     returnURL,
 	}
 	if !confirm {
 		pi, err := a.engine.Prepare(req)
@@ -268,6 +287,11 @@ func (a *API) confirmIntent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	returnURL, err := returnURLParam(p)
+	if err != nil {
+		writeParamError(w, err)
+		return
+	}
 	expand, err := a.expandsCharge(endpoint, p)
 	if err != nil {
 		writeParamError(w, err)
@@ -298,7 +322,7 @@ func (a *API) confirmIntent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	created, err := a.engine.Confirm(id, engine.ConfirmRequest{
-		Scenario: spec, PaymentMethod: pm, RetryKey: retryKey(r, "confirm "+id),
+		Scenario: spec, PaymentMethod: pm, ReturnURL: returnURL, RetryKey: retryKey(r, "confirm "+id),
 	})
 	if err != nil {
 		writeEngineError(w, err, id)
@@ -588,10 +612,10 @@ func (a *API) cancelIntent(w http.ResponseWriter, r *http.Request) {
 	switch cur.Status {
 	case payment.Unconfirmed, payment.Failed:
 		cancel = a.engine.Abandon
-	case payment.Pending, payment.Authorized:
+	case payment.Pending, payment.RequiresAction, payment.Authorized:
 	default:
 		unexpectedState(w, cur, "cancel", "requires_payment_method", "requires_capture",
-			"requires_confirmation", "processing")
+			"requires_confirmation", "requires_action", "processing")
 		return
 	}
 	if reason != "" {
