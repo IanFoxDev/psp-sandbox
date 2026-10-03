@@ -77,6 +77,7 @@ final class Client
         bool $manualCapture = false,
         ?string $callbackUrl = null,
         array $metadata = [],
+        ?string $returnUrl = null,
     ): Payment {
         $body = ['amount' => $amount, 'currency' => $currency];
         if ($reference !== null) {
@@ -90,6 +91,9 @@ final class Client
         }
         if ($metadata !== []) {
             $body['metadata'] = $metadata;
+        }
+        if ($returnUrl !== null) {
+            $body['return_url'] = $returnUrl;
         }
 
         $headers = [];
@@ -226,6 +230,19 @@ final class Client
         $f = $this->call('POST', '/_sandbox/payments/' . rawurlencode($paymentId) . '/events', 'forced event', $body);
 
         return new ForcedEvent(Payment::fromFields($f->object('payment')), Event::fromFields($f->object('event')));
+    }
+
+    /**
+     * Answers the 3DS challenge of a payment in RequiresAction, as the customer
+     * would on its actionUrl page. The scenario decides what follows.
+     *
+     * @throws ApiError
+     * @throws ClientExceptionInterface
+     */
+    public function authenticate(string $paymentId, bool $success = true): Payment
+    {
+        return Payment::fromFields($this->call('POST', '/_sandbox/payments/' . rawurlencode($paymentId) . '/authenticate',
+            'payment', ['result' => $success ? 'success' : 'failure']));
     }
 
     /**

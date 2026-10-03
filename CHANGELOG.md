@@ -7,6 +7,18 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- 3DS in the native profile: scenario `three_d_secure` (`outcome=succeeded|declined`)
+  puts a payment in `requires_action` with an `action_url` and sends
+  `payment.action_required`. The customer answers on that page (`/_sandbox/ui/3ds/{id}`,
+  then back to the payment's `return_url`) or a test calls
+  `POST /_sandbox/payments/{id}/authenticate`. A failed authentication fails the payment
+  with `authentication_failed`.
+- `PSP_PUBLIC_URL`: where a browser reaches the sandbox, for links to its pages.
+- PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
+  `Payment::$actionUrl`, `returnUrl` on `createPayment()`.
+
 ## [0.3.0] - 2026-10-03
 
 A Stripe-compatible profile: code on the official Stripe SDK runs against the sandbox

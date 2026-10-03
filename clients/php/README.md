@@ -112,6 +112,10 @@ $sandbox->waitForStatus($payments[0]->id, PaymentStatus::Captured);
 | `Scenario::TimeoutThenSuccess` | `delay`, `mode`: `hold` or `reset` |
 | `Scenario::LostCallback` | none |
 | `Scenario::DelayedCallback` | `delay` |
+| `Scenario::ChargebackAfter` | `delay`, `outcome`: `lost` or `won`, `close_after` |
+| `Scenario::ServerErrorThenSuccess` | `failures` (1 to 10), `status`: `503`, `500`, `502` or `504` |
+| `Scenario::OutOfOrder` | `window` |
+| `Scenario::ThreeDSecure` | `outcome`: `succeeded` or `declined` |
 
 Durations are strings in Go syntax: `'500ms'`, `'35s'`. Defaults and exact behavior:
 [docs/scenarios.md](https://github.com/IanFoxDev/psp-sandbox/blob/master/docs/scenarios.md).
@@ -143,6 +147,7 @@ with `pi_` ids in the stripe one.
 | `events($paymentId)` | Events in the order they happened. |
 | `forceEvent($paymentId, 'chargeback.opened')` | Make the provider send an event now. Takes `reason` for `payment.failed`, `outcome` for `chargeback.closed`. |
 | `replay($deliveryId)` | Send a delivered event again, same event id. |
+| `authenticate($paymentId, $success = true)` | Answer the 3DS challenge of a payment in `RequiresAction`, as the customer would on its `actionUrl` page. |
 | `clock()`, `advanceClock($seconds)` | Read or move the clock of a sandbox started with `PSP_CLOCK=manual`. |
 | `reset()` | Drop all payments, events and deliveries. `reset('test-42-')` drops only payments whose reference starts with the prefix. |
 | `waitForDeliveries($paymentId, $count = 1, $timeoutSeconds = 5.0)` | Poll until `$count` deliveries have finished. |

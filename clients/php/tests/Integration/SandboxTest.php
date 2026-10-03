@@ -149,6 +149,24 @@ final class SandboxTest extends TestCase
         self::assertLessThan($captured->attempts[0]->at, $chargeback->attempts[0]->at);
     }
 
+    public function testThreeDSecure(): void
+    {
+        $c = $this->sandbox();
+        $p = $c->createPayment(1000, 'EUR', scenario: Scenario::ThreeDSecure, returnUrl: 'https://shop.test/return');
+        $waiting = $this->waitForPaymentStatus($p->id, PaymentStatus::RequiresAction);
+        self::assertStringEndsWith('/_sandbox/ui/3ds/' . $p->id, (string) $waiting->actionUrl);
+
+        $done = $c->authenticate($p->id);
+        self::assertSame(PaymentStatus::Captured, $done->status);
+        self::assertNull($done->actionUrl);
+
+        $q = $c->createPayment(1000, 'EUR', scenario: Scenario::ThreeDSecure);
+        $this->waitForPaymentStatus($q->id, PaymentStatus::RequiresAction);
+        $failed = $c->authenticate($q->id, success: false);
+        self::assertSame(PaymentStatus::Failed, $failed->status);
+        self::assertSame('authentication_failed', $failed->failureReason);
+    }
+
     public function testResetByPrefix(): void
     {
         $c = $this->sandbox();

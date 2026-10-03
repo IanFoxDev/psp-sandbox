@@ -7,6 +7,7 @@ namespace PspSandbox;
 enum PaymentStatus: string
 {
     case Pending = 'pending';
+    case RequiresAction = 'requires_action';
     case Authorized = 'authorized';
     case Captured = 'captured';
     case PartiallyRefunded = 'partially_refunded';

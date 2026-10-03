@@ -30,6 +30,8 @@ final readonly class Payment
         public array $metadata,
         /** The create answer was replayed for a repeated Idempotency-Key. */
         public bool $replayed = false,
+        /** The 3DS page, while the payment is RequiresAction. */
+        public ?string $actionUrl = null,
     ) {
     }
 
@@ -56,6 +58,7 @@ final readonly class Payment
             updatedAt: $f->time('updated_at'),
             metadata: $f->stringMap('metadata'),
             replayed: $replayed,
+            actionUrl: $f->optionalString('action_url'),
         );
     }
 }
