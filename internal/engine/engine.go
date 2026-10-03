@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -45,6 +46,9 @@ type Config struct {
 	Rules *scenario.Rules
 	// DefaultScenario applies when a request names none and no rule matches.
 	DefaultScenario scenario.Spec
+	// PublicURL is where a browser reaches the sandbox, for links to the
+	// pages where a customer acts (3DS). No trailing slash.
+	PublicURL string
 	// PaymentPrefix and RefundPrefix start new ids. Defaults: pay, ref.
 	PaymentPrefix string
 	RefundPrefix  string
@@ -113,7 +117,9 @@ type CreateRequest struct {
 	Reference   string
 	Capture     payment.CaptureMode
 	CallbackURL string
-	Metadata    map[string]string
+	// ReturnURL is where the customer goes back to after acting (3DS).
+	ReturnURL string
+	Metadata  map[string]string
 	// PaymentMethod and Description are kept for APIs that have them.
 	PaymentMethod string
 	Description   string
@@ -306,6 +312,7 @@ func (e *Engine) newPayment(req CreateRequest, status payment.Status) payment.Pa
 		UpdatedAt:   now,
 		Metadata:    req.Metadata,
 		CallbackURL: req.CallbackURL,
+		ReturnURL:   req.ReturnURL,
 
 		PaymentMethod: req.PaymentMethod,
 		Description:   req.Description,
@@ -424,6 +431,12 @@ func (e *Engine) transitionLocked(paymentID string, to payment.Status, reason st
 			}
 			p.DisputedAt = now
 			return nil
+		case payment.RequiresAction:
+			if err := p.Become(to, now); err != nil {
+				return err
+			}
+			p.ActionURL = e.cfg.PublicURL + "/_sandbox/ui/3ds/" + url.PathEscape(p.ID)
+			return nil
 		default:
 			return p.Become(to, now)
 		}
@@ -509,6 +522,35 @@ func (e *Engine) Capture(id string, amount int64) (payment.Payment, error) {
 	}
 	e.emitPaymentLocked(p)
 	return p, nil
+}
+
+// Authenticate applies the customer's answer to a payment that requires
+// action: the scenario decides what follows. Steps due now are applied before
+// it returns.
+func (e *Engine) Authenticate(id string, ok bool) (payment.Payment, error) {
+	e.mu.Lock()
+	cur, err := e.store.Payment(id)
+	if err != nil {
+		e.mu.Unlock()
+		return cur, err
+	}
+	if cur.Status != payment.RequiresAction {
+		e.mu.Unlock()
+		return cur, fmt.Errorf("%w: payment is %s, only a payment that requires action can be authenticated",
+			payment.ErrInvalidState, cur.Status)
+	}
+	auth, isAuth := e.scenarioLocked(id).(scenario.Authenticator)
+	if !isAuth {
+		e.mu.Unlock()
+		return cur, fmt.Errorf("%w: the scenario of this payment does not wait for authentication", payment.ErrInvalidState)
+	}
+	r := run{e: e, gen: e.gen, paymentID: id, attempt: cur.Attempt}
+	e.mu.Unlock()
+
+	steps := auth.OnAuthenticate(scenario.CreateContext{Payment: cur.Clone(), ProcessingDelay: e.cfg.ProcessingDelay}, ok)
+	e.log.Info("payment authenticated", "payment", id, "ok", ok)
+	r.steps(steps, 0, nil, nil)
+	return e.store.Payment(id)
 }
 
 // Update changes fields of a payment that are not its state, such as metadata,

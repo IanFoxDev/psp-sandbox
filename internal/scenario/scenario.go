@@ -31,6 +31,14 @@ type Refuser interface {
 	Refuse(attempt int) (status int, refused bool)
 }
 
+// Authenticator is implemented by scenarios that wait for the customer to
+// act (3DS) after a status step to requires_action.
+type Authenticator interface {
+	// OnAuthenticate returns the steps after the customer's answer, at their
+	// offsets from that moment.
+	OnAuthenticate(c CreateContext, ok bool) []Step
+}
+
 // CreateContext is what a scenario knows when a payment is created.
 type CreateContext struct {
 	Payment payment.Payment

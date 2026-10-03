@@ -18,8 +18,10 @@ type Status string
 const (
 	// Unconfirmed is a payment that exists but has not been sent for
 	// processing. The native API never produces it: there, create confirms.
-	Unconfirmed       Status = "unconfirmed"
-	Pending           Status = "pending"
+	Unconfirmed Status = "unconfirmed"
+	Pending     Status = "pending"
+	// RequiresAction waits for the customer, for example to authenticate (3DS).
+	RequiresAction    Status = "requires_action"
 	Authorized        Status = "authorized"
 	Captured          Status = "captured"
 	PartiallyRefunded Status = "partially_refunded"
@@ -35,7 +37,8 @@ const (
 // A status that is not a key here is final.
 var transitions = map[Status][]Status{
 	Unconfirmed:       {Pending, Canceled},
-	Pending:           {Authorized, Captured, Failed, Canceled},
+	Pending:           {RequiresAction, Authorized, Captured, Failed, Canceled},
+	RequiresAction:    {Authorized, Captured, Failed, Canceled},
 	Authorized:        {Captured, Canceled},
 	Captured:          {PartiallyRefunded, Refunded, Disputed},
 	PartiallyRefunded: {PartiallyRefunded, Refunded, Disputed},
@@ -90,11 +93,15 @@ type Payment struct {
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
 	Metadata       map[string]string `json:"metadata,omitempty"`
+	// ActionURL is where the customer acts while the payment requires action.
+	ActionURL string `json:"action_url,omitempty"`
 
 	// CallbackURL is where events for this payment are delivered.
 	CallbackURL string `json:"-"`
 	// RefundPending is the sum of refunds that are accepted but not settled yet.
 	RefundPending int64 `json:"-"`
+	// ReturnURL is where the customer goes back to after acting on ActionURL.
+	ReturnURL string `json:"-"`
 	// PaymentMethod is what the payer used, when the API takes one.
 	PaymentMethod string `json:"-"`
 	// Attempt counts confirmations: 0 while unconfirmed, then 1, and one more
@@ -122,6 +129,9 @@ func (p Payment) Clone() Payment {
 func (p *Payment) Become(to Status, at time.Time) error {
 	if !p.Status.CanBecome(to) {
 		return fmt.Errorf("%w: payment is %s and cannot become %s", ErrInvalidState, p.Status, to)
+	}
+	if p.Status == RequiresAction {
+		p.ActionURL = ""
 	}
 	p.Status = to
 	p.UpdatedAt = at

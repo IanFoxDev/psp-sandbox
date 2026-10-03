@@ -9,11 +9,16 @@ import (
 var now = time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 
 func TestTransitions(t *testing.T) {
-	all := []Status{Unconfirmed, Pending, Authorized, Captured, PartiallyRefunded, Refunded, Failed,
+	all := []Status{Unconfirmed, Pending, RequiresAction, Authorized, Captured, PartiallyRefunded, Refunded, Failed,
 		Canceled, Disputed, ChargebackLost, ChargebackWon}
 	allowed := map[[2]Status]bool{
 		{Unconfirmed, Pending}:                 true,
 		{Unconfirmed, Canceled}:                true,
+		{Pending, RequiresAction}:              true,
+		{RequiresAction, Authorized}:           true,
+		{RequiresAction, Captured}:             true,
+		{RequiresAction, Failed}:               true,
+		{RequiresAction, Canceled}:             true,
 		{Pending, Authorized}:                  true,
 		{Pending, Captured}:                    true,
 		{Pending, Failed}:                      true,
@@ -189,5 +194,15 @@ func TestConfirm(t *testing.T) {
 	}
 	if err := p.Confirm(now); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("confirm captured: %v", err)
+	}
+}
+
+func TestLeavingRequiresActionDropsTheActionURL(t *testing.T) {
+	p := newPayment()
+	must(t, p.Become(RequiresAction, now))
+	p.ActionURL = "http://sandbox.test/_sandbox/ui/3ds/pay_1"
+	must(t, p.CaptureAmount(0, now))
+	if p.ActionURL != "" {
+		t.Fatalf("action_url kept after capture: %q", p.ActionURL)
 	}
 }

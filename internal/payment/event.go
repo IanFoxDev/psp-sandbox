@@ -9,21 +9,24 @@ type EventType string
 const (
 	// EventPaymentCreated is sent when a payment is created unconfirmed. The
 	// native API creates and confirms at once and never sends it.
-	EventPaymentCreated    EventType = "payment.created"
-	EventPaymentAuthorized EventType = "payment.authorized"
-	EventPaymentCaptured   EventType = "payment.captured"
-	EventPaymentFailed     EventType = "payment.failed"
-	EventPaymentCanceled   EventType = "payment.canceled"
-	EventRefundSucceeded   EventType = "refund.succeeded"
-	EventRefundFailed      EventType = "refund.failed"
-	EventChargebackOpened  EventType = "chargeback.opened"
-	EventChargebackClosed  EventType = "chargeback.closed"
+	EventPaymentCreated        EventType = "payment.created"
+	EventPaymentActionRequired EventType = "payment.action_required"
+	EventPaymentAuthorized     EventType = "payment.authorized"
+	EventPaymentCaptured       EventType = "payment.captured"
+	EventPaymentFailed         EventType = "payment.failed"
+	EventPaymentCanceled       EventType = "payment.canceled"
+	EventRefundSucceeded       EventType = "refund.succeeded"
+	EventRefundFailed          EventType = "refund.failed"
+	EventChargebackOpened      EventType = "chargeback.opened"
+	EventChargebackClosed      EventType = "chargeback.closed"
 )
 
 // EventTypeFor returns the event emitted when a payment enters status s.
 // Refund statuses have no payment event: the refund events carry them.
 func EventTypeFor(s Status) (EventType, bool) {
 	switch s {
+	case RequiresAction:
+		return EventPaymentActionRequired, true
 	case Authorized:
 		return EventPaymentAuthorized, true
 	case Captured:
