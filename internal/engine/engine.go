@@ -191,8 +191,9 @@ type ConfirmRequest struct {
 	// Scenario is nil when the request did not name one. Rules then match the
 	// payment as it is stored.
 	Scenario *scenario.Spec
-	// PaymentMethod replaces the stored one when not empty.
+	// PaymentMethod and ReturnURL replace the stored ones when not empty.
 	PaymentMethod string
+	ReturnURL     string
 	// RetryKey is as in CreateRequest.
 	RetryKey string
 }
@@ -219,7 +220,7 @@ func (e *Engine) Confirm(id string, req ConfirmRequest) (Created, error) {
 	if err := e.refuseIf(sc, req.RetryKey); err != nil {
 		return Created{}, err
 	}
-	return e.confirm(id, req.PaymentMethod, sc)
+	return e.confirm(id, req.PaymentMethod, req.ReturnURL, sc)
 }
 
 // PrepareAndConfirm is Prepare followed by Confirm in one call, for APIs that
@@ -239,10 +240,10 @@ func (e *Engine) PrepareAndConfirm(req CreateRequest, c ConfirmRequest) (Created
 	if err != nil {
 		return Created{}, err
 	}
-	return e.confirm(p.ID, c.PaymentMethod, sc)
+	return e.confirm(p.ID, c.PaymentMethod, c.ReturnURL, sc)
 }
 
-func (e *Engine) confirm(id, paymentMethod string, sc scenario.Scenario) (Created, error) {
+func (e *Engine) confirm(id, paymentMethod, returnURL string, sc scenario.Scenario) (Created, error) {
 	e.mu.Lock()
 	now := e.now()
 	p, err := e.store.UpdatePayment(id, func(p *payment.Payment) error {
@@ -251,6 +252,9 @@ func (e *Engine) confirm(id, paymentMethod string, sc scenario.Scenario) (Create
 		}
 		if paymentMethod != "" {
 			p.PaymentMethod = paymentMethod
+		}
+		if returnURL != "" {
+			p.ReturnURL = returnURL
 		}
 		p.Scenario = sc.Name()
 		return nil
