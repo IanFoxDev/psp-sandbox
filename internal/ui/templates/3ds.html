@@ -1,0 +1,24 @@
+{{define "content" -}}
+{{with .Data}}
+<h1>Authenticate the payment</h1>
+<div class="panel">
+<p class="muted">This page stands in for the bank's 3D Secure challenge. In a browser test, click one of the buttons, as the customer would.</p>
+<dl>
+  <dt>Payment</dt><dd class="mono"><a href="/_sandbox/ui/payments/{{.Payment.ID}}">{{.Payment.ID}}</a></dd>
+  <dt>Amount</dt><dd>{{.Payment.Amount}} {{.Payment.Currency}} <span class="muted">(minor units)</span></dd>
+  <dt>Status</dt><dd><span class="st st-{{.Payment.Status}}">{{.Payment.Status}}</span></dd>
+  {{with .Payment.ReturnURL}}<dt>Returns to</dt><dd class="mono">{{.}}</dd>{{end}}
+</dl>
+</div>
+{{if .Waiting}}
+<form method="post" action="/_sandbox/ui/3ds/{{.Payment.ID}}" class="toolbar">
+  <button type="submit" name="result" value="success" id="complete">Complete authentication</button>
+  <button type="submit" name="result" value="failure" id="fail">Fail authentication</button>
+</form>
+{{else}}
+<p class="muted">{{.Message}}</p>
+{{end}}
+{{else}}
+<h1>Payment not found</h1>
+{{end}}
+{{- end}}

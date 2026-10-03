@@ -19,6 +19,7 @@ type createRequest struct {
 	Reference   string            `json:"reference"`
 	Capture     string            `json:"capture"`
 	CallbackURL string            `json:"callback_url"`
+	ReturnURL   string            `json:"return_url"`
 	Metadata    map[string]string `json:"metadata"`
 }
 
@@ -110,6 +111,7 @@ func validateCreate(req createRequest) (engine.CreateRequest, string) {
 		Reference:   req.Reference,
 		Capture:     payment.CaptureMode(req.Capture),
 		CallbackURL: req.CallbackURL,
+		ReturnURL:   req.ReturnURL,
 		Metadata:    req.Metadata,
 	}
 	if req.Amount <= 0 {
@@ -125,13 +127,18 @@ func validateCreate(req createRequest) (engine.CreateRequest, string) {
 	default:
 		return in, "capture must be auto or manual"
 	}
-	if req.CallbackURL != "" {
-		u, err := url.Parse(req.CallbackURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return in, "callback_url must be an absolute http or https URL"
-		}
+	if req.CallbackURL != "" && !absoluteURL(req.CallbackURL) {
+		return in, "callback_url must be an absolute http or https URL"
+	}
+	if req.ReturnURL != "" && !absoluteURL(req.ReturnURL) {
+		return in, "return_url must be an absolute http or https URL"
 	}
 	return in, ""
+}
+
+func absoluteURL(s string) bool {
+	u, err := url.Parse(s)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 func (a *API) getPayment(w http.ResponseWriter, r *http.Request) {

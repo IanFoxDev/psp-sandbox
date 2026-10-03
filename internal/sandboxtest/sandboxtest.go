@@ -32,6 +32,7 @@ const Wait = 5 * time.Second
 func Config() config.Config {
 	return config.Config{
 		Profile:         config.ProfileNative,
+		PublicURL:       "http://sandbox.test",
 		Addr:            ":0",
 		WebhookSecret:   Secret,
 		DefaultScenario: "happy_path",

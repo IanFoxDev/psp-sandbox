@@ -99,6 +99,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		UserAgent: "psp-sandbox/" + version,
 	})
 	engCfg := engine.Config{
+		PublicURL:       cfg.PublicURL,
 		ProcessingDelay: cfg.ProcessingDelay,
 		CallbackURL:     cfg.CallbackURL,
 		Rules:           rules,

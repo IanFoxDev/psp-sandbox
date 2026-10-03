@@ -71,3 +71,18 @@ func TestProfile(t *testing.T) {
 		t.Fatalf("adyen: %v", err)
 	}
 }
+
+func TestPublicURL(t *testing.T) {
+	t.Setenv("PSP_ADDR", "127.0.0.1:18291")
+	if c, err := FromEnv(); err != nil || c.PublicURL != "http://localhost:18291" {
+		t.Fatalf("default: %q %v", c.PublicURL, err)
+	}
+	t.Setenv("PSP_PUBLIC_URL", "https://psp.example.test/")
+	if c, err := FromEnv(); err != nil || c.PublicURL != "https://psp.example.test" {
+		t.Fatalf("set: %q %v", c.PublicURL, err)
+	}
+	t.Setenv("PSP_PUBLIC_URL", "psp:8090")
+	if _, err := FromEnv(); err == nil {
+		t.Fatal("relative PSP_PUBLIC_URL accepted")
+	}
+}

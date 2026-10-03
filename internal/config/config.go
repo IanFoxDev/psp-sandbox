@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -18,8 +19,11 @@ const (
 // Config is the sandbox configuration. See docs/api.md for the variables.
 type Config struct {
 	// Profile is the provider API the sandbox speaks: native or stripe.
-	Profile         string
-	Addr            string
+	Profile string
+	Addr    string
+	// PublicURL is where a browser reaches the sandbox, for links to the
+	// pages where a customer acts. No trailing slash.
+	PublicURL       string
 	APIKey          string
 	CallbackURL     string
 	WebhookSecret   string
@@ -44,6 +48,13 @@ func FromEnv() (Config, error) {
 		DefaultScenario: env("PSP_DEFAULT_SCENARIO", "happy_path"),
 		Seed:            os.Getenv("PSP_SEED"),
 		LogFormat:       env("PSP_LOG_FORMAT", "text"),
+	}
+
+	c.PublicURL = strings.TrimRight(os.Getenv("PSP_PUBLIC_URL"), "/")
+	if c.PublicURL == "" {
+		c.PublicURL = defaultPublicURL(c.Addr)
+	} else if u, err := url.Parse(c.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return c, fmt.Errorf("PSP_PUBLIC_URL: want an absolute http or https URL, got %q", c.PublicURL)
 	}
 
 	if c.CallbackURL != "" {
@@ -84,6 +95,16 @@ func FromEnv() (Config, error) {
 	}
 
 	return c, nil
+}
+
+// defaultPublicURL is localhost on the port of addr: right when tests and
+// the browser run on the host that publishes the port.
+func defaultPublicURL(addr string) string {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" || port == "0" {
+		port = "8090"
+	}
+	return "http://localhost:" + port
 }
 
 func env(key, fallback string) string {

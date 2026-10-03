@@ -341,6 +341,44 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /_sandbox/payments/{id}/authenticate:
+    post:
+      tags: [control]
+      operationId: authenticatePayment
+      security: []
+      summary: Answer the 3DS challenge as the customer would
+      description: |
+        The same as pressing a button on the payment's `action_url` page. Only a
+        payment in `requires_action` can be authenticated; the scenario decides
+        what follows.
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [result]
+              properties:
+                result:
+                  type: string
+                  enum: [success, failure]
+      responses:
+        '200':
+          description: The payment after the answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /_sandbox/deliveries/{id}/replay:
     post:
       tags: [control]
@@ -622,6 +660,10 @@ components:
         callback_url:
           type: string
           format: uri
+        return_url:
+          description: Where the 3DS page sends the customer after they act.
+          type: string
+          format: uri
         metadata:
           type: object
           additionalProperties:
@@ -629,7 +671,7 @@ components:
 
     PaymentStatus:
       type: string
-      enum: [pending, authorized, captured, partially_refunded, refunded, failed, canceled, disputed, chargeback_lost, chargeback_won]
+      enum: [pending, requires_action, authorized, captured, partially_refunded, refunded, failed, canceled, disputed, chargeback_lost, chargeback_won]
 
     Payment:
       type: object
@@ -659,7 +701,11 @@ components:
         failure_reason:
           description: Only on failed payments.
           type: string
-          enum: [insufficient_funds, do_not_honor, expired_card, fraud_suspected, generic_decline, lost_card, stolen_card, incorrect_cvc, processing_error]
+          enum: [insufficient_funds, do_not_honor, expired_card, fraud_suspected, generic_decline, lost_card, stolen_card, incorrect_cvc, processing_error, authentication_failed]
+        action_url:
+          description: Only while the payment is `requires_action`. The page where the customer authenticates.
+          type: string
+          format: uri
         created_at:
           $ref: '#/components/schemas/Time'
         updated_at:
@@ -714,7 +760,7 @@ components:
           examples: [evt_01J9Z3M4T7A1]
         type:
           type: string
-          enum: [payment.authorized, payment.captured, payment.failed, payment.canceled, refund.succeeded, refund.failed, chargeback.opened, chargeback.closed]
+          enum: [payment.action_required, payment.authorized, payment.captured, payment.failed, payment.canceled, refund.succeeded, refund.failed, chargeback.opened, chargeback.closed]
         created_at:
           $ref: '#/components/schemas/Time'
         data:

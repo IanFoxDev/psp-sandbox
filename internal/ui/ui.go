@@ -34,6 +34,7 @@ type UI struct {
 	log        *slog.Logger
 	index      *template.Template
 	payment    *template.Template
+	threeDS    *template.Template
 }
 
 // New returns the web UI.
@@ -44,7 +45,8 @@ func New(e *engine.Engine, d *callback.Dispatcher, clk clock.Clock, log *slog.Lo
 	page := func(name string) *template.Template {
 		return template.Must(template.New("").Funcs(funcs).ParseFS(files, "templates/layout.html", "templates/"+name))
 	}
-	return &UI{engine: e, dispatcher: d, clock: clk, log: log, index: page("index.html"), payment: page("payment.html")}
+	return &UI{engine: e, dispatcher: d, clock: clk, log: log, index: page("index.html"), payment: page("payment.html"),
+		threeDS: page("3ds.html")}
 }
 
 // Register adds the UI routes to mux.
@@ -53,6 +55,8 @@ func (u *UI) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /_sandbox/ui/payments/{id}", u.show)
 	mux.HandleFunc("POST /_sandbox/ui/deliveries/{id}/replay", u.replay)
 	mux.HandleFunc("POST /_sandbox/ui/reset", u.reset)
+	mux.HandleFunc("GET /_sandbox/ui/3ds/{id}", u.challenge)
+	mux.HandleFunc("POST /_sandbox/ui/3ds/{id}", u.authenticate)
 }
 
 var funcs = template.FuncMap{
@@ -191,6 +195,59 @@ func indent(b []byte) string {
 		return string(b)
 	}
 	return buf.String()
+}
+
+type challengeData struct {
+	Payment payment.Payment
+	Waiting bool
+	Message string
+}
+
+// challenge is the 3DS page a payment's action_url points at.
+func (u *UI) challenge(w http.ResponseWriter, r *http.Request) {
+	p, err := u.engine.Payment(r.PathValue("id"))
+	if errors.Is(err, store.ErrNotFound) {
+		u.render(w, u.threeDS, http.StatusNotFound, u.page(r, "Payment not found", nil))
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	d := challengeData{Payment: p, Waiting: p.Status == payment.RequiresAction}
+	if !d.Waiting {
+		d.Message = "Nothing to authenticate: the payment is " + string(p.Status) + "."
+	}
+	u.render(w, u.threeDS, http.StatusOK, u.page(r, "Authenticate "+p.ID, d))
+}
+
+// authenticate applies the button the customer pressed, then sends the
+// browser back to the app's return_url, or to this page when there is none.
+func (u *UI) authenticate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	result := r.FormValue("result")
+	if result != "success" && result != "failure" {
+		http.Error(w, "result must be success or failure", http.StatusBadRequest)
+		return
+	}
+	p, err := u.engine.Authenticate(id, result == "success")
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		u.render(w, u.threeDS, http.StatusNotFound, u.page(r, "Payment not found", nil))
+		return
+	case errors.Is(err, payment.ErrInvalidState):
+		u.render(w, u.threeDS, http.StatusConflict, u.page(r, "Authenticate "+id,
+			challengeData{Payment: p, Message: "Nothing to authenticate: the payment is " + string(p.Status) + "."}))
+		return
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if p.ReturnURL != "" {
+		http.Redirect(w, r, p.ReturnURL, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/_sandbox/ui/3ds/"+url.PathEscape(id), http.StatusSeeOther)
 }
 
 func (u *UI) replay(w http.ResponseWriter, r *http.Request) {

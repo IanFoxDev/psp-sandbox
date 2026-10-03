@@ -122,3 +122,44 @@ func TestResetAndRefresh(t *testing.T) {
 	}
 	contains(t, string(resp.Body), "No payments yet")
 }
+
+func TestThreeDSecurePage(t *testing.T) {
+	sb := sandboxtest.New(t)
+	p := sb.CreatePayment(map[string]any{"return_url": "https://shop.test/return?order=42"}, scenario.Header, "three_d_secure")
+	id := p["id"].(string)
+	sb.WaitStatus(id, "requires_action")
+
+	page := get(t, sb, "/_sandbox/ui/3ds/"+id, http.StatusOK)
+	contains(t, page, id, "Complete authentication", "Fail authentication", `value="success"`, "https://shop.test/return?order=42")
+
+	status, location := post(t, sb, "/_sandbox/ui/3ds/"+id+"?result=success")
+	if status != http.StatusSeeOther || location != "https://shop.test/return?order=42" {
+		t.Fatalf("submit: %d %q", status, location)
+	}
+	if got := sb.Payment(id); got["status"] != "captured" {
+		t.Fatalf("after submit: %v", got["status"])
+	}
+	page = get(t, sb, "/_sandbox/ui/3ds/"+id, http.StatusOK)
+	contains(t, page, "Nothing to authenticate: the payment is captured.")
+	if strings.Contains(page, "Complete authentication") {
+		t.Error("buttons shown for a payment that waits for nothing")
+	}
+	if status, _ := post(t, sb, "/_sandbox/ui/3ds/"+id+"?result=success"); status != http.StatusConflict {
+		t.Errorf("second submit: %d", status)
+	}
+	get(t, sb, "/_sandbox/ui/3ds/pay_missing", http.StatusNotFound)
+}
+
+func TestThreeDSecurePageWithoutReturnURL(t *testing.T) {
+	sb := sandboxtest.New(t)
+	p := sb.CreatePayment(nil, scenario.Header, "three_d_secure")
+	id := p["id"].(string)
+	sb.WaitStatus(id, "requires_action")
+	status, location := post(t, sb, "/_sandbox/ui/3ds/"+id+"?result=failure")
+	if status != http.StatusSeeOther || location != "/_sandbox/ui/3ds/"+id {
+		t.Fatalf("submit: %d %q", status, location)
+	}
+	if got := sb.Payment(id); got["status"] != "failed" {
+		t.Fatalf("after failure: %v", got["status"])
+	}
+}

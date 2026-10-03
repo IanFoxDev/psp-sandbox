@@ -35,6 +35,7 @@ func (c *Control) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /_sandbox/payments/{id}/deliveries", c.deliveries)
 	mux.HandleFunc("GET /_sandbox/payments/{id}/events", c.events)
 	mux.HandleFunc("POST /_sandbox/payments/{id}/events", c.force)
+	mux.HandleFunc("POST /_sandbox/payments/{id}/authenticate", c.authenticate)
 	mux.HandleFunc("POST /_sandbox/deliveries/{id}/replay", c.replay)
 	mux.HandleFunc("GET /_sandbox/clock", c.clockNow)
 	mux.HandleFunc("POST /_sandbox/clock/advance", c.advance)
@@ -92,6 +93,27 @@ func (c *Control) force(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"payment": p, "event": ev})
+}
+
+// authenticate is what the customer does on the 3DS page, for tests that do
+// not drive a browser.
+func (c *Control) authenticate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Result string `json:"result"`
+	}
+	if !httpx.ReadJSON(w, r, &req, false) {
+		return
+	}
+	if req.Result != "success" && req.Result != "failure" {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_request", "result must be success or failure")
+		return
+	}
+	p, err := c.engine.Authenticate(r.PathValue("id"), req.Result == "success")
+	if err != nil {
+		httpx.WriteDomainError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, p)
 }
 
 func (c *Control) replay(w http.ResponseWriter, r *http.Request) {
