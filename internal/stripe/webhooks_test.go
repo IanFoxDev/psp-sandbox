@@ -244,3 +244,40 @@ func TestReplayResendsTheStripeEvent(t *testing.T) {
 		t.Errorf("replayed: %v", got)
 	}
 }
+
+func TestCatalogScenariosInStripeProfile(t *testing.T) {
+	t.Run("invalid_signature", func(t *testing.T) {
+		s := newStripe(t)
+		id := intentOf(s.create(visa + "&metadata[sandbox_scenario]=invalid_signature"))
+		got := s.Receiver.Wait(3)
+		signed := 0
+		for _, c := range got {
+			obj, _ := c.Data["object"].(map[string]any)
+			if obj["id"] == id && c.Signed {
+				signed++
+			}
+		}
+		// payment_intent.created goes out before the scenario is picked.
+		if signed != 1 {
+			t.Errorf("%d events of %s verify, want only payment_intent.created", signed, id)
+		}
+	})
+	t.Run("amount_mismatch", func(t *testing.T) {
+		s := newStripe(t)
+		m := s.create(visa + "&metadata[sandbox_scenario]=" + url.QueryEscape("amount_mismatch; delta=-100")).body
+		if m["amount_received"] != 900.0 || m["amount"] != 1000.0 {
+			t.Errorf("amount_mismatch: %v", m)
+		}
+	})
+	t.Run("status_regression", func(t *testing.T) {
+		s := newStripe(t)
+		id := intentOf(s.create(visa + "&metadata[sandbox_scenario]=" + url.QueryEscape("status_regression; delay=100ms")))
+		want := []string{"payment_intent.created", "charge.succeeded", "payment_intent.succeeded", "charge.failed", "payment_intent.payment_failed"}
+		if got := waitHooks(t, s, id, len(want)); !slices.Equal(got, want) {
+			t.Errorf("webhooks %v, want %v", got, want)
+		}
+		if pi := s.form("GET", "/v1/payment_intents/"+id, "").body; pi["status"] != "succeeded" {
+			t.Errorf("the PaymentIntent itself is %v", pi["status"])
+		}
+	})
+}

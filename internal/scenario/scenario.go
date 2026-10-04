@@ -62,6 +62,12 @@ type Step struct {
 	Status payment.Status
 	// Reason is the decline reason when Status is failed.
 	Reason string
+	// Amount, when not 0 and Status is captured, is the amount captured
+	// instead of the requested one.
+	Amount int64
+	// EventOnly sends the event of Status with a snapshot in that status,
+	// without changing the payment: a provider reporting what did not happen.
+	EventOnly bool
 }
 
 // Response shapes the HTTP answer to the create request. Its timings are wall

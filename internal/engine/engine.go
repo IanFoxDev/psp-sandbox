@@ -422,7 +422,10 @@ func (e *Engine) applyStep(r run, step scenario.Step) <-chan struct{} {
 			"err", "step of attempt "+strconv.Itoa(r.attempt)+", payment is on attempt "+strconv.Itoa(p.Attempt))
 		return nil
 	}
-	_, _, sent, err := e.transitionLocked(r.paymentID, step.Status, step.Reason)
+	if step.EventOnly {
+		return e.emitFalseLocked(r.paymentID, step)
+	}
+	_, _, sent, err := e.transitionAmountLocked(r.paymentID, step.Status, step.Reason, step.Amount)
 	if err != nil {
 		e.log.Info("scheduled status change skipped", "payment", r.paymentID, "to", step.Status, "err", err)
 		return nil
@@ -433,12 +436,46 @@ func (e *Engine) applyStep(r run, step scenario.Step) <-chan struct{} {
 // transitionLocked moves a payment to status to and sends the matching event.
 // e.mu must be held.
 func (e *Engine) transitionLocked(paymentID string, to payment.Status, reason string) (payment.Payment, payment.Event, <-chan struct{}, error) {
+	return e.transitionAmountLocked(paymentID, to, reason, 0)
+}
+
+// emitFalseLocked sends the event of step.Status with a snapshot in that
+// status while the payment stays as it is. e.mu must be held.
+func (e *Engine) emitFalseLocked(paymentID string, step scenario.Step) <-chan struct{} {
+	p, err := e.store.Payment(paymentID)
+	if err != nil {
+		return nil
+	}
+	typ, ok := payment.EventTypeFor(step.Status)
+	if !ok {
+		return nil
+	}
+	fake := p.Clone()
+	fake.Status = step.Status
+	fake.FailureReason = step.Reason
+	fake.UpdatedAt = e.now()
+	e.log.Info("false event sent by the scenario", "payment", paymentID, "type", typ, "actual", p.Status)
+	_, sent := e.emitLocked(fake, typ, fake)
+	return sent
+}
+
+// transitionAmountLocked is transitionLocked with the captured amount when
+// to is captured; 0 captures the full amount.
+func (e *Engine) transitionAmountLocked(paymentID string, to payment.Status, reason string, amount int64) (payment.Payment, payment.Event, <-chan struct{}, error) {
 	now := e.now()
 	p, err := e.store.UpdatePayment(paymentID, func(p *payment.Payment) error {
 		switch to {
 		case payment.Failed:
 			return p.Fail(reason, now)
 		case payment.Captured:
+			if amount > 0 {
+				// A provider capturing another amount than requested.
+				if err := p.Become(payment.Captured, now); err != nil {
+					return err
+				}
+				p.CapturedAmount = amount
+				return nil
+			}
 			return p.CaptureAmount(0, now)
 		case payment.Disputed:
 			if err := p.Become(to, now); err != nil {
