@@ -116,6 +116,10 @@ $sandbox->waitForStatus($payments[0]->id, PaymentStatus::Captured);
 | `Scenario::ServerErrorThenSuccess` | `failures` (1 to 10), `status`: `503`, `500`, `502` or `504` |
 | `Scenario::OutOfOrder` | `window` |
 | `Scenario::ThreeDSecure` | `outcome`: `succeeded` or `declined` |
+| `Scenario::InvalidSignature` | `mode`: `wrong_secret`, `stale_timestamp` or `missing` |
+| `Scenario::AckIgnored` | `times` (1 to 10) |
+| `Scenario::AmountMismatch` | `delta` (not 0) |
+| `Scenario::StatusRegression` | `delay` |
 
 Durations are strings in Go syntax: `'500ms'`, `'35s'`. Defaults and exact behavior:
 [docs/scenarios.md](https://github.com/IanFoxDev/psp-sandbox/blob/master/docs/scenarios.md).

@@ -97,9 +97,11 @@ idempotency key unless retries are on globally; details there.
 | `chargeback_after` | A chargeback is opened some time after capture and closed as lost or won. | v0.2 |
 | `server_error_then_success` | The first N create requests return 5xx and create nothing, the next one succeeds. | v0.2 |
 | `out_of_order` | Events for one payment arrive in reverse order. | v0.2 |
-| `ack_ignored` | Your app returns 200, the sandbox retries anyway. | planned |
-| `invalid_signature` | The callback carries a wrong signature. | planned |
-| `amount_mismatch` | The captured amount differs from the requested one. | planned |
+| `three_d_secure` | The payment waits for 3DS on a sandbox page, then succeeds or fails. | v0.4 |
+| `invalid_signature` | The callback carries a wrong, stale or missing signature. | v0.4 |
+| `ack_ignored` | Your app returns 200, the sandbox retries anyway. | v0.4 |
+| `amount_mismatch` | The captured amount differs from the requested one. | v0.4 |
+| `status_regression` | A failed callback arrives after the payment succeeded. | v0.4 |
 
 Parameters and exact behavior: [docs/scenarios.md](docs/scenarios.md).
 

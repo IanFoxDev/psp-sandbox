@@ -30,6 +30,11 @@ such changes are marked **BREAKING**.
   delivery scenario; at `expires_at` on the sandbox clock or on `/expire` the session
   sends `checkout.session.expired` and cancels an unpaid PaymentIntent with
   `cancellation_reason: expired`.
+- Scenarios `invalid_signature` (`wrong_secret`, `stale_timestamp` or `missing`),
+  `ack_ignored` (the first `times` 2xx answers are treated as failures),
+  `amount_mismatch` (captured for `amount + delta`) and `status_regression` (a failed
+  callback after success while the payment stays captured), in both profiles. Every
+  scenario in the README table is now implemented.
 - `PSP_PUBLIC_URL`: where a browser reaches the sandbox, for links to its pages.
 - PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
   `Payment::$actionUrl`, `returnUrl` on `createPayment()`.

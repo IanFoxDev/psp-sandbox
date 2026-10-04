@@ -24,6 +24,10 @@ enum Scenario: string
     case ServerErrorThenSuccess = 'server_error_then_success';
     case OutOfOrder = 'out_of_order';
     case ThreeDSecure = 'three_d_secure';
+    case InvalidSignature = 'invalid_signature';
+    case AckIgnored = 'ack_ignored';
+    case AmountMismatch = 'amount_mismatch';
+    case StatusRegression = 'status_regression';
 
     public const string HEADER = 'X-Sandbox-Scenario';
 
