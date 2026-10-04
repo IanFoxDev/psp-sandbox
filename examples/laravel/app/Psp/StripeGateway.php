@@ -42,4 +42,44 @@ class StripeGateway
 
         return $intent->id;
     }
+
+    /**
+     * Starts Stripe Checkout for the order and returns the session id and the
+     * URL of the hosted page.
+     *
+     * @return array{id: string, url: string}
+     */
+    public function checkout(Order $order): array
+    {
+        $stripe = new StripeClient([
+            'api_key' => config('psp.stripe.secret_key'),
+            'api_base' => config('psp.stripe.url'),
+        ]);
+        $handler = config('psp.callback_handler') === 'naive' ? 'naive' : 'safe';
+
+        $params = [
+            'mode' => 'payment',
+            'client_reference_id' => $order->reference,
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => strtolower($order->currency),
+                    'unit_amount' => $order->amount,
+                    'product_data' => ['name' => 'Order '.$order->reference],
+                ],
+                'quantity' => 1,
+            ]],
+            'success_url' => rtrim(config('psp.callback_base_url'), '/').'/checkout/success/'.$handler
+                .'?session_id={CHECKOUT_SESSION_ID}',
+        ];
+        // See pay(): only for the sandbox.
+        if ($base = config('psp.stripe.sandbox_webhook_base')) {
+            $params['payment_intent_data'] = ['metadata' => [
+                'sandbox_callback_url' => rtrim($base, '/').'/stripe/webhook/'.$handler,
+            ]];
+        }
+
+        $session = $stripe->checkout->sessions->create($params, ['idempotency_key' => 'checkout-'.$order->reference]);
+
+        return ['id' => $session->id, 'url' => (string) $session->url];
+    }
 }

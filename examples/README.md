@@ -34,8 +34,19 @@ scenario, from `metadata[reference]`.
 `NaiveStripeWebhookController` and `SafeStripeWebhookController` handle
 `payment_intent.succeeded` with the same mistakes and the same fixes as the native
 pair; the safe one verifies `Stripe-Signature` with `\Stripe\Webhook::constructEvent()`.
-`tests/Feature/StripeWebhookTest.php` runs the three tests above against them, so the
-naive handler fails six tests in Laravel and three in Symfony.
+`tests/Feature/StripeWebhookTest.php` runs the three tests above against them.
+
+It also takes payments through Stripe Checkout. The naive version fulfils the order on
+the page the customer lands on after paying (`NaiveCheckoutSuccessController`); the
+safe one fulfils it on `checkout.session.completed` and the page only shows the status.
+`tests/Feature/StripeCheckoutTest.php`:
+
+| Test | What the sandbox does | `naive` | `safe` |
+|---|---|---|---|
+| a customer who pays and closes the tab still gets the order | the test pays through `payCheckout()` and never opens `success_url`; every webhook comes five times at once | order stays `pending` | pass |
+| reloading the success page does not fulfil the order again | the test opens `success_url` twice | credited twice | pass |
+
+So the naive handlers fail eight tests in Laravel and three in Symfony.
 
 With `duplicate_callback` each copy is a pair of Stripe events (`charge.succeeded` and
 `payment_intent.succeeded`), so five copies are ten deliveries plus
@@ -47,7 +58,7 @@ With `duplicate_callback` each copy is a pair of Stripe events (`charge.succeede
 cd laravel   # or symfony
 docker compose up -d --build --wait
 docker compose exec app vendor/bin/phpunit                                  # safe: passes
-docker compose exec -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit    # naive: 6 failures (Symfony: 3)
+docker compose exec -e PSP_CALLBACK_HANDLER=naive app vendor/bin/phpunit    # naive: 8 failures (Symfony: 3)
 docker compose down -v
 ```
 

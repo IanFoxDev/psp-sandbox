@@ -10,3 +10,6 @@ A Laravel 12 shop with a naive and a safe payment callback handler. See
 - `app/Psp/StripeGateway.php`, `app/Http/Controllers/*StripeWebhookController.php`,
   `tests/Feature/StripeWebhookTest.php`: the same shop on stripe-php, against the
   sandbox in the stripe profile.
+- `app/Http/Controllers/StripeCheckoutSessionController.php`, `*CheckoutSuccessController.php`,
+  `tests/Feature/StripeCheckoutTest.php`: Stripe Checkout, fulfilled on the success page
+  (naive) or on `checkout.session.completed` (safe).

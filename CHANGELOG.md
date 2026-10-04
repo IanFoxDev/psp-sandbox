@@ -36,6 +36,10 @@ such changes are marked **BREAKING**.
   callback after success while the payment stays captured), in both profiles. Every
   scenario in the README table is now implemented.
 - `PSP_PUBLIC_URL`: where a browser reaches the sandbox, for links to its pages.
+- PHP client: `payCheckout()` pays a Checkout Session as the customer would.
+- Laravel example: Stripe Checkout, fulfilled on the success page (naive) or on
+  `checkout.session.completed` (safe), with tests for a customer who closes the tab
+  after paying and for a reloaded success page.
 - PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
   `Payment::$actionUrl`, `returnUrl` on `createPayment()`.
 

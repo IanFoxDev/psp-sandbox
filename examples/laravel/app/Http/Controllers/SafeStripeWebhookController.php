@@ -12,7 +12,8 @@ use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
 
 /**
- * SafeCallbackController, for Stripe webhooks. The same five rules: verify the
+ * SafeCallbackController, for Stripe webhooks: payment_intent.succeeded for
+ * direct payments and checkout.session.completed for Stripe Checkout. The same five rules: verify the
  * signature with the SDK, find the order by our own reference (metadata), record
  * the event id and lock the order in one transaction, call other services after
  * the commit, answer 2xx only when done.
@@ -33,16 +34,21 @@ class SafeStripeWebhookController
             return response('invalid signature', 400);
         }
 
-        if ($event->type !== 'payment_intent.succeeded') {
-            return response()->noContent();
-        }
-        $intent = $event->data->object;
-        $reference = $intent->metadata['reference'] ?? null;
+        // Direct payments carry the order in the PaymentIntent's metadata,
+        // Checkout payments in the session's client_reference_id.
+        $object = $event->data->object;
+        [$reference, $amount, $currency] = match ($event->type) {
+            'payment_intent.succeeded' => [$object->metadata['reference'] ?? null, $object->amount_received, $object->currency],
+            'checkout.session.completed' => $object->payment_status === 'paid'
+                ? [$object->client_reference_id, $object->amount_total, $object->currency]
+                : [null, 0, ''],
+            default => [null, 0, ''],
+        };
         if ($reference === null) {
-            return response()->noContent(); // not a payment of this shop
+            return response()->noContent(); // not an event that pays an order of this shop
         }
 
-        $applied = DB::transaction(function () use ($event, $intent, $reference): bool {
+        $applied = DB::transaction(function () use ($event, $object, $reference, $amount, $currency): bool {
             $fresh = DB::table('psp_events')->insertOrIgnore([
                 'event_id' => $event->id,
                 'type' => $event->type,
@@ -56,12 +62,12 @@ class SafeStripeWebhookController
             if ($order->status === 'paid') {
                 return false;
             }
-            if ($intent->amount_received !== $order->amount || $intent->currency !== strtolower($order->currency)) {
-                throw new \RuntimeException("Order {$order->reference}: Stripe received {$intent->amount_received} {$intent->currency}");
+            if ($amount !== $order->amount || $currency !== strtolower($order->currency)) {
+                throw new \RuntimeException("Order {$order->reference}: Stripe received {$amount} {$currency}");
             }
 
-            $order->psp_payment_id ??= $intent->id;
-            $order->credited_amount += $intent->amount_received;
+            $order->psp_payment_id ??= $object->id;
+            $order->credited_amount += $amount;
             $order->status = 'paid';
             $order->save();
 
