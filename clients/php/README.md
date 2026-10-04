@@ -151,6 +151,7 @@ with `pi_` ids in the stripe one.
 | `events($paymentId)` | Events in the order they happened. |
 | `forceEvent($paymentId, 'chargeback.opened')` | Make the provider send an event now. Takes `reason` for `payment.failed`, `outcome` for `chargeback.closed`. |
 | `replay($deliveryId)` | Send a delivered event again, same event id. |
+| `payCheckout($sessionId, $paymentMethod = 'pm_card_visa')` | Stripe profile: pay a Checkout Session as the customer would on its page; returns the PaymentIntent id. |
 | `authenticate($paymentId, $success = true)` | Answer the 3DS challenge of a payment in `RequiresAction`, as the customer would on its `actionUrl` page. |
 | `clock()`, `advanceClock($seconds)` | Read or move the clock of a sandbox started with `PSP_CLOCK=manual`. |
 | `reset()` | Drop all payments, events and deliveries. `reset('test-42-')` drops only payments whose reference starts with the prefix. |

@@ -246,6 +246,22 @@ final class Client
     }
 
     /**
+     * Pays a Checkout Session of the stripe profile with a test card, as the
+     * customer would on its page, and returns the id of the session's
+     * PaymentIntent, for waitForDeliveries().
+     *
+     * @throws ApiError
+     * @throws ClientExceptionInterface
+     */
+    public function payCheckout(string $sessionId, string $paymentMethod = 'pm_card_visa'): string
+    {
+        $f = $this->call('POST', '/_sandbox/checkout/' . rawurlencode($sessionId) . '/pay', 'checkout session',
+            ['payment_method' => $paymentMethod]);
+
+        return $f->object('payment_intent')->string('id');
+    }
+
+    /**
      * Sends the event of a delivery again, as a new delivery with the same event id.
      *
      * @throws ApiError
