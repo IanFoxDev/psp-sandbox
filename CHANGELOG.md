@@ -42,6 +42,8 @@ such changes are marked **BREAKING**.
   after paying and for a reloaded success page.
 - PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
   `Payment::$actionUrl`, `returnUrl` on `createPayment()`.
+- [docs/ci.md](docs/ci.md): the sandbox as a service in GitHub Actions and GitLab CI,
+  with callbacks back to the job.
 
 ## [0.3.0] - 2026-10-03
 

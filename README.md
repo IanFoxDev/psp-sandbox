@@ -18,7 +18,7 @@ callbacks to your app, and lets each test pick a failure scenario by name. With
 `PSP_PROFILE=stripe` it speaks Stripe's API instead, so code on the official Stripe SDK
 gets the same failures without an adapter.
 
-> Status: v0.3. Until 1.0, a minor version may change the API; such changes are marked
+> Status: v0.4. Until 1.0, a minor version may change the API; such changes are marked
 > **BREAKING** in the [CHANGELOG](CHANGELOG.md).
 
 ## Quick start
@@ -27,7 +27,7 @@ gets the same failures without an adapter.
 # compose.yaml in your project
 services:
   psp:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.3
+    image: ghcr.io/ianfoxdev/psp-sandbox:0.4
     ports: ["8090:8090"]
     environment:
       PSP_CALLBACK_URL: http://app/api/psp/callback
@@ -61,9 +61,9 @@ what was sent, what your app answered, how long it took.
 ## Code that calls Stripe
 
 Start the sandbox with `PSP_PROFILE=stripe` and point the SDK at it. Nothing else in
-the app changes: PaymentIntents, refunds, events and webhooks signed with
-`Stripe-Signature` behave like Stripe's, checked against Stripe's OpenAPI spec and with
-stripe-php, stripe-go and stripe-node in CI.
+the app changes: PaymentIntents, 3DS, Checkout Sessions, refunds, events and webhooks
+signed with `Stripe-Signature` behave like Stripe's, checked against Stripe's OpenAPI
+spec and with stripe-php, stripe-go and stripe-node in CI.
 
 ```php
 $stripe = new \Stripe\StripeClient(['api_key' => 'sk_test_123', 'api_base' => 'http://localhost:8090']);
@@ -77,6 +77,10 @@ The webhook handler gets `payment_intent.succeeded` three times, each with a val
 `Stripe-Signature`. Stripe's test cards work as they do in test mode
 (`pm_card_visa_chargeDeclinedInsufficientFunds` is a `402` card error), and every
 scenario below can be picked through metadata.
+
+Checkout and 3DS send the customer to pages of the sandbox instead of Stripe's, so a
+browser test can pay, pass or fail 3DS and come back to `success_url` or `return_url`.
+A test without a browser does the same through the control API.
 
 Setup for each SDK, what is supported and how it differs from Stripe:
 [docs/stripe.md](docs/stripe.md). Running the SDKs against the sandbox also showed that
@@ -171,7 +175,9 @@ Standard Webhooks signing, which has verifier libraries for most languages.
 [examples/](examples) has a Laravel and a Symfony shop, each with a naive and a safe
 callback handler. The same tests pass on the safe one and fail on the naive one: five
 parallel copies of one callback credit the order several times, and a callback that
-arrives before the create response leaves the order unpaid.
+arrives before the create response leaves the order unpaid. The Laravel shop also pays
+through Stripe Checkout, where the naive handler fulfills the order on the success page
+and loses it when the customer closes the tab.
 
 ## Where callbacks go
 
@@ -197,7 +203,9 @@ Everything is set with environment variables. The ones most tests need:
 | `PSP_RETRY_SCHEDULE` | `0s,5s,30s,2m,10m,1h` | `0s` in CI: one attempt, no hour-long retries. |
 | `PSP_CLOCK` | `real` | `manual` to move time from tests (chargebacks, long delays). |
 
-The full list: [docs/api.md](docs/api.md#configuration).
+The full list: [docs/api.md](docs/api.md#configuration). Recipes for GitHub Actions and
+GitLab CI services, including how callbacks get back to the job:
+[docs/ci.md](docs/ci.md).
 
 ## Callbacks
 
@@ -217,7 +225,8 @@ can run in parallel). See [docs/api.md](docs/api.md#control-api).
 ## Documentation
 
 - [API](docs/api.md), and the same as [OpenAPI 3.1](docs/openapi.yaml)
-- [Stripe-compatible profile](docs/stripe.md)
+- [Stripe-compatible profile](docs/stripe.md), with Checkout and 3DS
+- [Running in CI](docs/ci.md)
 - [Scenarios](docs/scenarios.md)
 - [Callbacks and signing](docs/callbacks.md)
 - [Architecture](docs/architecture.md)
