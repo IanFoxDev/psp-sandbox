@@ -7,6 +7,14 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-04
+
+3D Secure in both profiles, Stripe Checkout in the stripe profile, and the rest of the
+scenario catalog: every scenario in the README is now implemented. A test can pay,
+pass or fail 3DS and abandon a checkout on the sandbox's own pages or through the
+control API, and get the duplicate, late or out-of-order webhooks on top. Nothing that
+worked in 0.3 changes.
+
 ### Added
 
 - 3DS in the native profile: scenario `three_d_secure` (`outcome=succeeded|declined`)
@@ -169,7 +177,8 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.0...v0.1.1
