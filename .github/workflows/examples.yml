@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Laravel also runs the Stripe tests: three more for the naive handler to fail.
-          - { app: laravel, naive_failures: 6 }
+          # Laravel also runs the Stripe and Stripe Checkout tests: five more for the naive handlers to fail.
+          - { app: laravel, naive_failures: 8 }
           - { app: symfony, naive_failures: 3 }
     defaults:
       run:
