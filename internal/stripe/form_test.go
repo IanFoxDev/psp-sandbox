@@ -96,3 +96,41 @@ func TestParseParamsRejectsBadKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedParams(t *testing.T) {
+	p := parse(t, "line_items[1][quantity]=2&line_items[0][quantity]=1&line_items[0][price_data][unit_amount]=500"+
+		"&line_items[0][price_data][product_data][name]=Tea&payment_intent_data[metadata][reference]=r-1")
+	items, ok, err := p.Items("line_items")
+	if err != nil || !ok || len(items) != 2 {
+		t.Fatalf("items: %v %v %v", items, ok, err)
+	}
+	if q, _, _ := items[0].Int("quantity"); q != 1 {
+		t.Errorf("first quantity %d", q)
+	}
+	pd, ok, err := items[0].Sub("price_data")
+	if err != nil || !ok {
+		t.Fatalf("price_data: %v %v", ok, err)
+	}
+	prod, _, _ := pd.Sub("product_data")
+	if name, _, _ := prod.String("name"); name != "Tea" {
+		t.Errorf("name %q", name)
+	}
+	if _, ok, _ := items[1].Sub("price_data"); ok {
+		t.Error("second item has no price_data")
+	}
+	pid, _, _ := p.Sub("payment_intent_data")
+	if md, _, _ := pid.Map("metadata"); md["reference"] != "r-1" {
+		t.Errorf("payment_intent_data[metadata] %v", md)
+	}
+	if got := p.Unread(); len(got) != 0 {
+		t.Errorf("Unread %v", got)
+	}
+	for _, raw := range []string{"line_items=x", "line_items[a][quantity]=1", "line_items[0]=x", "payment_intent_data=x"} {
+		q := parse(t, raw)
+		_, _, err1 := q.Items("line_items")
+		_, _, err2 := q.Sub("payment_intent_data")
+		if err1 == nil && err2 == nil {
+			t.Errorf("%q accepted", raw)
+		}
+	}
+}

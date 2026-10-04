@@ -234,3 +234,46 @@ func (p *Params) Unread() []string {
 	slices.Sort(out)
 	return out
 }
+
+// Sub returns a hash parameter, such as payment_intent_data, as Params of its
+// own. Names read from it are not reported by Unread.
+func (p *Params) Sub(name string) (*Params, bool, error) {
+	n := p.get(name)
+	if n == nil {
+		return nil, false, nil
+	}
+	if n.value != nil {
+		return nil, true, &ParamError{Code: "parameter_invalid_empty", Param: name, Message: "Invalid " + name + ": must be a hash"}
+	}
+	return &Params{root: n, read: map[string]bool{}}, true, nil
+}
+
+// Items returns an array of hashes, such as line_items, in index order.
+func (p *Params) Items(name string) ([]*Params, bool, error) {
+	n := p.get(name)
+	if n == nil {
+		return nil, false, nil
+	}
+	invalid := &ParamError{Code: "parameter_invalid_empty", Param: name, Message: "Invalid " + name + ": must be an array of hashes"}
+	if n.value != nil {
+		return nil, true, invalid
+	}
+	type item struct {
+		i int
+		n *node
+	}
+	items := make([]item, 0, len(n.children))
+	for k, c := range n.children {
+		i, err := strconv.Atoi(k)
+		if err != nil || i < 0 || c.value != nil {
+			return nil, true, invalid
+		}
+		items = append(items, item{i, c})
+	}
+	slices.SortFunc(items, func(a, b item) int { return a.i - b.i })
+	out := make([]*Params, len(items))
+	for i, it := range items {
+		out[i] = &Params{root: it.n, read: map[string]bool{}}
+	}
+	return out, true, nil
+}
