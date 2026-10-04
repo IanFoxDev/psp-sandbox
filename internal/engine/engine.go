@@ -52,6 +52,8 @@ type Config struct {
 	// PaymentPrefix and RefundPrefix start new ids. Defaults: pay, ref.
 	PaymentPrefix string
 	RefundPrefix  string
+	// SessionPrefix starts checkout session ids. Default: cs.
+	SessionPrefix string
 }
 
 // Engine runs payments. It is safe for concurrent use.
@@ -66,7 +68,10 @@ type Engine struct {
 
 	// mu serializes every status change together with sending its event, so
 	// events reach the dispatcher in the order the changes happened.
-	mu        sync.Mutex
+	mu sync.Mutex
+	// payMu serializes payments of checkout sessions, so two attempts on one
+	// session do not create two payments.
+	payMu     sync.Mutex
 	gen       uint64
 	scenarios map[string]scenario.Scenario
 	// refused counts refused create calls by CreateRequest.RetryKey.
@@ -97,6 +102,9 @@ func New(cfg Config, d Deps) (*Engine, error) {
 	if cfg.RefundPrefix == "" {
 		cfg.RefundPrefix = "ref"
 	}
+	if cfg.SessionPrefix == "" {
+		cfg.SessionPrefix = "cs"
+	}
 	return &Engine{
 		cfg:        cfg,
 		clock:      d.Clock,
@@ -119,6 +127,8 @@ type CreateRequest struct {
 	CallbackURL string
 	// ReturnURL is where the customer goes back to after acting (3DS).
 	ReturnURL string
+	// SessionID is the checkout session the payment is made for, if any.
+	SessionID string
 	Metadata  map[string]string
 	// PaymentMethod and Description are kept for APIs that have them.
 	PaymentMethod string
@@ -317,6 +327,7 @@ func (e *Engine) newPayment(req CreateRequest, status payment.Status) payment.Pa
 		Metadata:    req.Metadata,
 		CallbackURL: req.CallbackURL,
 		ReturnURL:   req.ReturnURL,
+		SessionID:   req.SessionID,
 
 		PaymentMethod: req.PaymentMethod,
 		Description:   req.Description,
@@ -449,6 +460,9 @@ func (e *Engine) transitionLocked(paymentID string, to payment.Status, reason st
 		return p, payment.Event{}, nil, err
 	}
 	ev, sent := e.emitPaymentLocked(p)
+	if p.SessionID != "" && p.Status == payment.Captured {
+		e.completeSessionLocked(p)
+	}
 	return p, ev, sent, nil
 }
 

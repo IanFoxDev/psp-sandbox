@@ -21,11 +21,13 @@ var ErrNotFound = errors.New("not found")
 
 // Store is the in-memory state of the sandbox.
 type Store struct {
-	mu       sync.Mutex
-	payments map[string]*payment.Payment
-	order    []string
-	refunds  map[string]*payment.Refund
-	events   map[string][]payment.Event
+	mu           sync.Mutex
+	payments     map[string]*payment.Payment
+	order        []string
+	refunds      map[string]*payment.Refund
+	events       map[string][]payment.Event
+	sessions     map[string]*payment.Session
+	sessionOrder []string
 	// allEvents holds every event in the order they happened.
 	allEvents []payment.Event
 	idem      map[string]*idemEntry
@@ -52,10 +54,13 @@ func (s *Store) reset() {
 	s.events = map[string][]payment.Event{}
 	s.allEvents = nil
 	s.idem = map[string]*idemEntry{}
+	s.sessions = map[string]*payment.Session{}
+	s.sessionOrder = nil
 }
 
-// DropByReferencePrefix removes the payments whose reference starts with
-// prefix, with their refunds, events and idempotency keys, and returns their ids.
+// DropByReferencePrefix removes the payments and checkout sessions whose
+// reference starts with prefix, with their refunds, events and idempotency
+// keys, and returns their ids.
 func (s *Store) DropByReferencePrefix(prefix string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -76,6 +81,17 @@ func (s *Store) DropByReferencePrefix(prefix string) []string {
 			delete(s.refunds, id)
 		}
 	}
+	sessionOrder := s.sessionOrder[:0]
+	for _, id := range s.sessionOrder {
+		if strings.HasPrefix(s.sessions[id].Reference, prefix) {
+			dropped[id] = true
+			delete(s.sessions, id)
+			delete(s.events, id)
+			continue
+		}
+		sessionOrder = append(sessionOrder, id)
+	}
+	s.sessionOrder = sessionOrder
 	s.allEvents = slices.DeleteFunc(s.allEvents, func(e payment.Event) bool { return dropped[e.PaymentID] })
 	for key, e := range s.idem {
 		if dropped[e.paymentID] {
@@ -222,4 +238,52 @@ func (s *Store) Events(paymentID string) []payment.Event {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.Clone(s.events[paymentID])
+}
+
+// AddSession stores a new checkout session.
+func (s *Store) AddSession(cs payment.Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := cs.Clone()
+	s.sessions[c.ID] = &c
+	s.sessionOrder = append(s.sessionOrder, c.ID)
+}
+
+// Session returns one checkout session.
+func (s *Store) Session(id string) (payment.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cs, ok := s.sessions[id]
+	if !ok {
+		return payment.Session{}, ErrNotFound
+	}
+	return cs.Clone(), nil
+}
+
+// Sessions returns the checkout sessions in the order they were created.
+func (s *Store) Sessions() []payment.Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]payment.Session, 0, len(s.sessionOrder))
+	for _, id := range s.sessionOrder {
+		out = append(out, s.sessions[id].Clone())
+	}
+	return out
+}
+
+// UpdateSession runs fn on a checkout session under the store lock. If fn
+// returns an error, the session is left as it was.
+func (s *Store) UpdateSession(id string, fn func(cs *payment.Session) error) (payment.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur, ok := s.sessions[id]
+	if !ok {
+		return payment.Session{}, ErrNotFound
+	}
+	next := cur.Clone()
+	if err := fn(&next); err != nil {
+		return cur.Clone(), err
+	}
+	s.sessions[id] = &next
+	return next.Clone(), nil
 }

@@ -19,6 +19,9 @@ const (
 	EventRefundFailed          EventType = "refund.failed"
 	EventChargebackOpened      EventType = "chargeback.opened"
 	EventChargebackClosed      EventType = "chargeback.closed"
+	// Checkout session events carry the session as Data.
+	EventCheckoutCompleted EventType = "checkout.completed"
+	EventCheckoutExpired   EventType = "checkout.expired"
 )
 
 // EventTypeFor returns the event emitted when a payment enters status s.

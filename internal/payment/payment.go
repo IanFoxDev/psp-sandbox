@@ -100,6 +100,8 @@ type Payment struct {
 	CallbackURL string `json:"-"`
 	// RefundPending is the sum of refunds that are accepted but not settled yet.
 	RefundPending int64 `json:"-"`
+	// SessionID is the checkout session the payment belongs to, if any.
+	SessionID string `json:"-"`
 	// ReturnURL is where the customer goes back to after acting on ActionURL.
 	ReturnURL string `json:"-"`
 	// PaymentMethod is what the payer used, when the API takes one.
