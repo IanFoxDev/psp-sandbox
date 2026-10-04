@@ -187,4 +187,62 @@ check('events retrieve', function () use ($stripe) {
     expect($ev->type === 'charge.refunded', "type $ev->type");
 });
 
+// 3DS and Checkout. They come after the list check, which counts intents.
+function control(string $base, string $path, array $body): void
+{
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'ignore_errors' => true,
+        'header' => "Content-Type: application/json\r\n", 'content' => json_encode($body)]]);
+    $answer = file_get_contents($base . $path, false, $ctx);
+    expect(str_contains($http_response_header[0] ?? '', '200'), $path . ': ' . ($http_response_header[0] ?? '') . ' ' . $answer);
+}
+$threeDS = null;
+check('3DS card stops in requires_action with a redirect', function () use ($stripe, $params, &$threeDS) {
+    $threeDS = $stripe->paymentIntents->create($params('pm_card_threeDSecure2Required') + ['return_url' => 'https://shop.test/return']);
+    $na = $threeDS->next_action;
+    expect($threeDS->status === 'requires_action' && $na !== null && $na->type === 'redirect_to_url'
+        && $na->redirect_to_url->url !== '' && $na->redirect_to_url->return_url === 'https://shop.test/return',
+        "got $threeDS->status");
+});
+check('authentication completes the payment', function () use ($stripe, $base, &$threeDS) {
+    control($base, '/_sandbox/payments/' . $threeDS->id . '/authenticate', ['result' => 'success']);
+    $pi = $stripe->paymentIntents->retrieve($threeDS->id);
+    expect($pi->status === 'succeeded', "status $pi->status");
+});
+$sessionParams = fn (): array => [
+    'mode' => 'payment',
+    'success_url' => 'https://shop.test/done?session={CHECKOUT_SESSION_ID}',
+    'line_items' => [['price_data' => ['currency' => 'eur', 'unit_amount' => 700, 'product_data' => ['name' => 'Tea']], 'quantity' => 2]],
+    'payment_intent_data' => ['metadata' => ['sandbox_callback_url' => $hookUrl]],
+];
+$session = null;
+check('checkout session completes when the customer pays', function () use ($stripe, $base, $sessionParams, &$session) {
+    $session = $stripe->checkout->sessions->create($sessionParams());
+    expect($session->status === 'open' && $session->url !== null && $session->amount_total === 1400, "created $session->status");
+    control($base, '/_sandbox/checkout/' . $session->id . '/pay', ['payment_method' => 'pm_card_visa']);
+    $session = $stripe->checkout->sessions->retrieve($session->id);
+    expect($session->status === 'complete' && $session->payment_status === 'paid' && $session->payment_intent !== null,
+        "after pay $session->status $session->payment_status");
+});
+check('checkout session expires', function () use ($stripe, $sessionParams) {
+    $cs = $stripe->checkout->sessions->create($sessionParams());
+    $expired = $stripe->checkout->sessions->expire($cs->id);
+    expect($expired->status === 'expired', "status $expired->status");
+});
+check('3DS and checkout webhooks verify', function () use ($log, &$threeDS, &$session) {
+    $want = [['payment_intent.requires_action', $threeDS->id], ['checkout.session.completed', $session->payment_intent]];
+    $deadline = microtime(true) + 10;
+    foreach ($want as [$type, $intent]) {
+        while (true) {
+            $lines = array_map(fn ($l) => json_decode($l, true), file($log, FILE_IGNORE_NEW_LINES) ?: []);
+            $rejected = array_filter($lines, fn ($l) => isset($l['rejected']));
+            expect($rejected === [], 'rejected: ' . json_encode(array_values($rejected)));
+            if (array_filter($lines, fn ($l) => ($l['type'] ?? '') === $type && ($l['intent'] ?? '') === $intent) !== []) {
+                break;
+            }
+            expect(microtime(true) < $deadline, "no $type for $intent");
+            usleep(50_000);
+        }
+    }
+});
+
 exit($failed ? 1 : 0);

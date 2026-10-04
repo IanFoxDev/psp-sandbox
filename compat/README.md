@@ -12,7 +12,11 @@ SDK's `constructEvent`:
 - manual capture of part of the amount, a partial refund;
 - `server_error_then_success` with and without SDK retries;
 - `timeout_then_success`: a retry after a client timeout gets the stored answer;
-- paging through a list, retrieving an event.
+- paging through a list, retrieving an event;
+- a 3DS card: `requires_action` with `next_action.redirect_to_url`, then authentication
+  through the control API;
+- a Checkout Session: created with `price_data`, paid through the control API, complete
+  and paid; another one expired.
 
 ```bash
 make compat

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -237,6 +238,111 @@ func main() {
 		}
 		return errors.New("no charge.refunded event")
 	})
+
+	// 3DS and Checkout. They come after the list check, which counts intents.
+	control := func(path string, body any) error {
+		b, _ := json.Marshal(body)
+		resp, err := http.Post(base+path, "application/json", bytes.NewReader(b))
+		if err != nil {
+			return err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			raw, _ := io.ReadAll(resp.Body)
+			return fmt.Errorf("%s: %d %s", path, resp.StatusCode, raw)
+		}
+		return nil
+	}
+	var threeDS *stripe.PaymentIntent
+	check("3DS card stops in requires_action with a redirect", func() (err error) {
+		p := params("pm_card_threeDSecure2Required")
+		p.ReturnURL = stripe.String("https://shop.test/return")
+		if threeDS, err = sc.V1PaymentIntents.Create(ctx, p); err != nil {
+			return err
+		}
+		na := threeDS.NextAction
+		if threeDS.Status != stripe.PaymentIntentStatusRequiresAction || na == nil || na.Type != stripe.PaymentIntentNextActionTypeRedirectToURL ||
+			na.RedirectToURL == nil || na.RedirectToURL.URL == "" || na.RedirectToURL.ReturnURL != "https://shop.test/return" {
+			return fmt.Errorf("got status %s, next_action %+v", threeDS.Status, na)
+		}
+		return nil
+	})
+	check("authentication completes the payment", func() error {
+		if err := control("/_sandbox/payments/"+threeDS.ID+"/authenticate", map[string]string{"result": "success"}); err != nil {
+			return err
+		}
+		pi, err := sc.V1PaymentIntents.Retrieve(ctx, threeDS.ID, nil)
+		if err == nil && pi.Status != stripe.PaymentIntentStatusSucceeded {
+			err = fmt.Errorf("status %s", pi.Status)
+		}
+		return err
+	})
+	sessionParams := func() *stripe.CheckoutSessionCreateParams {
+		return &stripe.CheckoutSessionCreateParams{
+			Mode:       stripe.String("payment"),
+			SuccessURL: stripe.String("https://shop.test/done?session={CHECKOUT_SESSION_ID}"),
+			LineItems: []*stripe.CheckoutSessionCreateLineItemParams{{
+				PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
+					Currency:    stripe.String("eur"),
+					UnitAmount:  stripe.Int64(700),
+					ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{Name: stripe.String("Tea")},
+				},
+				Quantity: stripe.Int64(2),
+			}},
+			PaymentIntentData: &stripe.CheckoutSessionCreatePaymentIntentDataParams{
+				Metadata: map[string]string{"sandbox_callback_url": hookURL},
+			},
+		}
+	}
+	var session *stripe.CheckoutSession
+	check("checkout session completes when the customer pays", func() (err error) {
+		if session, err = sc.V1CheckoutSessions.Create(ctx, sessionParams()); err != nil {
+			return err
+		}
+		if session.Status != stripe.CheckoutSessionStatusOpen || session.URL == "" || session.AmountTotal != 1400 {
+			return fmt.Errorf("created: status %s, url %q, total %d", session.Status, session.URL, session.AmountTotal)
+		}
+		if err := control("/_sandbox/checkout/"+session.ID+"/pay", map[string]string{"payment_method": "pm_card_visa"}); err != nil {
+			return err
+		}
+		if session, err = sc.V1CheckoutSessions.Retrieve(ctx, session.ID, nil); err != nil {
+			return err
+		}
+		if session.Status != stripe.CheckoutSessionStatusComplete || session.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid ||
+			session.PaymentIntent == nil {
+			return fmt.Errorf("after pay: status %s, payment_status %s", session.Status, session.PaymentStatus)
+		}
+		return nil
+	})
+	check("checkout session expires", func() error {
+		cs, err := sc.V1CheckoutSessions.Create(ctx, sessionParams())
+		if err != nil {
+			return err
+		}
+		if cs, err = sc.V1CheckoutSessions.Expire(ctx, cs.ID, nil); err == nil && cs.Status != stripe.CheckoutSessionStatusExpired {
+			err = fmt.Errorf("status %s", cs.Status)
+		}
+		return err
+	})
+	check("3DS and checkout webhooks verify", func() error {
+		want := []hook{{"payment_intent.requires_action", threeDS.ID}, {"checkout.session.completed", session.PaymentIntent.ID}}
+		deadline := time.Now().Add(10 * time.Second)
+		for _, h := range want {
+			for !rc.has(h.typ, h.intent) {
+				if time.Now().After(deadline) {
+					return fmt.Errorf("no %s for %s", h.typ, h.intent)
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+		rc.mu.Lock()
+		defer rc.mu.Unlock()
+		if len(rc.rejected) > 0 {
+			return fmt.Errorf("rejected: %v", rc.rejected)
+		}
+		return nil
+	})
+
 	if failed {
 		os.Exit(1)
 	}

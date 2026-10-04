@@ -145,5 +145,56 @@ await check('events retrieve', async () => {
   expect(ev.type === 'charge.refunded', `type ${ev.type}`);
 });
 
+// 3DS and Checkout. They come after the list check, which counts intents.
+const control = async (path, body) => {
+  const res = await fetch(new URL(path, base), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  expect(res.status === 200, `${path}: ${res.status} ${await res.text()}`);
+};
+let threeDS;
+await check('3DS card stops in requires_action with a redirect', async () => {
+  threeDS = await stripe.paymentIntents.create({ ...params('pm_card_threeDSecure2Required'), return_url: 'https://shop.test/return' });
+  const na = threeDS.next_action;
+  expect(threeDS.status === 'requires_action' && na && na.type === 'redirect_to_url' && na.redirect_to_url.url &&
+    na.redirect_to_url.return_url === 'https://shop.test/return', `got ${threeDS.status} ${JSON.stringify(na)}`);
+});
+await check('authentication completes the payment', async () => {
+  await control(`/_sandbox/payments/${threeDS.id}/authenticate`, { result: 'success' });
+  const pi = await stripe.paymentIntents.retrieve(threeDS.id);
+  expect(pi.status === 'succeeded', `status ${pi.status}`);
+});
+const sessionParams = () => ({
+  mode: 'payment',
+  success_url: 'https://shop.test/done?session={CHECKOUT_SESSION_ID}',
+  line_items: [{ price_data: { currency: 'eur', unit_amount: 700, product_data: { name: 'Tea' } }, quantity: 2 }],
+  payment_intent_data: { metadata: { sandbox_callback_url: hookURL } },
+});
+let session;
+await check('checkout session completes when the customer pays', async () => {
+  session = await stripe.checkout.sessions.create(sessionParams());
+  expect(session.status === 'open' && session.url && session.amount_total === 1400, `created ${session.status} ${session.url}`);
+  await control(`/_sandbox/checkout/${session.id}/pay`, { payment_method: 'pm_card_visa' });
+  session = await stripe.checkout.sessions.retrieve(session.id);
+  expect(session.status === 'complete' && session.payment_status === 'paid' && session.payment_intent,
+    `after pay ${session.status} ${session.payment_status}`);
+});
+await check('checkout session expires', async () => {
+  const cs = await stripe.checkout.sessions.create(sessionParams());
+  const expired = await stripe.checkout.sessions.expire(cs.id);
+  expect(expired.status === 'expired', `status ${expired.status}`);
+});
+await check('3DS and checkout webhooks verify', async () => {
+  const want = [['payment_intent.requires_action', threeDS.id], ['checkout.session.completed', session.payment_intent]];
+  const deadline = Date.now() + 10000;
+  for (const [type, intent] of want) {
+    while (!got.some((h) => h.type === type && h.intent === intent)) {
+      expect(Date.now() < deadline, `no ${type} for ${intent}`);
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+  expect(rejected.length === 0, `rejected: ${rejected.join('; ')}`);
+});
+
 server.close();
 process.exit(failed ? 1 : 0);
