@@ -1,0 +1,31 @@
+{{define "content" -}}
+{{with .Data}}
+<h1>Checkout <span class="mono muted">{{.Session.ID}}</span></h1>
+<div class="panel">
+<p class="muted">This page stands in for the provider's hosted payment page. In a browser test, pick a test card and pay, as the customer would.</p>
+<div class="table">
+<table>
+  <thead><tr><th>Item</th><th class="num">Unit</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
+  <tbody>
+  {{range .Session.LineItems}}<tr><td>{{.Name}}</td><td class="num">{{.UnitAmount}}</td><td class="num">{{.Quantity}}</td><td class="num">{{.Total}}</td></tr>{{end}}
+  <tr><td><b>Total</b></td><td></td><td></td><td class="num"><b>{{.Total}} {{.Session.Currency}}</b></td></tr>
+  </tbody>
+</table>
+</div>
+</div>
+{{with .Message}}<p class="st st-failed" id="message">{{.}}</p>{{end}}
+{{if .Open}}
+<form method="post" action="/_sandbox/ui/checkout/{{.Session.ID}}" class="toolbar">
+  <label>Card
+    <select name="payment_method" id="payment_method">
+      {{range .Cards}}<option value="{{.ID}}">{{.Label}}</option>{{end}}
+    </select>
+  </label>
+  <button type="submit" id="pay">Pay</button>
+  {{with .Session.CancelURL}}<a href="{{.}}" id="cancel">Cancel and go back</a>{{end}}
+</form>
+{{end}}
+{{else}}
+<h1>Checkout session not found</h1>
+{{end}}
+{{- end}}

@@ -35,6 +35,13 @@ func (a *API) registerIntents(mux *http.ServeMux) {
 	mux.Handle("GET /v1/charges/{charge}", a.chain(http.HandlerFunc(a.getCharge)))
 }
 
+// sessionOwned refuses an action on the PaymentIntent of a Checkout Session,
+// as Stripe does: the session is expired instead.
+func sessionOwned(w http.ResponseWriter, action string) {
+	invalidRequest(w, http.StatusBadRequest, "payment_intent_unexpected_state", "",
+		"You cannot "+action+" this PaymentIntent because it belongs to a Checkout Session. Expire the Checkout Session instead.")
+}
+
 func noSuchIntent(w http.ResponseWriter, id string) {
 	invalidRequest(w, http.StatusNotFound, "resource_missing", "intent", "No such payment_intent: '"+id+"'")
 }
@@ -305,6 +312,10 @@ func (a *API) confirmIntent(w http.ResponseWriter, r *http.Request) {
 		noSuchIntent(w, id)
 		return
 	}
+	if cur.SessionID != "" {
+		sessionOwned(w, "confirm")
+		return
+	}
 	if cur.Status != payment.Unconfirmed && cur.Status != payment.Failed {
 		unexpectedState(w, cur, "confirm", "requires_payment_method", "requires_confirmation")
 		return
@@ -370,7 +381,11 @@ func (a *API) answer(w http.ResponseWriter, r *http.Request, created engine.Crea
 // metadata[sandbox_scenario], then the test payment method. Nil leaves the
 // choice to the rules file and the default.
 func pickScenario(r *http.Request, metadata map[string]string, pm string) (*scenario.Spec, error) {
-	if h := r.Header.Get(scenario.Header); h != "" {
+	return pickScenarioFrom(r.Header.Get(scenario.Header), metadata, pm)
+}
+
+func pickScenarioFrom(header string, metadata map[string]string, pm string) (*scenario.Spec, error) {
+	if h := header; h != "" {
 		spec, err := scenario.ParseHeader(h)
 		if err != nil {
 			return nil, &ParamError{Code: "parameter_invalid_string", Message: scenario.Header + ": " + err.Error()}
@@ -606,6 +621,10 @@ func (a *API) cancelIntent(w http.ResponseWriter, r *http.Request) {
 	cur, err := a.engine.Payment(id)
 	if err != nil {
 		noSuchIntent(w, id)
+		return
+	}
+	if cur.SessionID != "" {
+		sessionOwned(w, "cancel")
 		return
 	}
 	cancel := a.engine.Cancel

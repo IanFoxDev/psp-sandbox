@@ -120,6 +120,22 @@ func TestContract(t *testing.T) {
 	box.Do("POST", "/_sandbox/payments/"+id(failedAuth)+"/authenticate", map[string]any{"result": "failure"})
 	c.call("GET", intent, intents+"/"+id(failedAuth), "")
 
+	// Checkout: created, paid, expired.
+	const sessions = "/v1/checkout/sessions"
+	csBody := "mode=payment&success_url=https%3A%2F%2Fshop.test%2Fdone&cancel_url=https%3A%2F%2Fshop.test%2Fcart" +
+		"&client_reference_id=order-1&customer_email=a%40shop.test&metadata[cart]=1&payment_intent_data[metadata][order]=1" +
+		"&line_items[0][price_data][currency]=eur&line_items[0][price_data][unit_amount]=700" +
+		"&line_items[0][price_data][product_data][name]=Tea&line_items[0][quantity]=2"
+	paidCS := c.call("POST", sessions, sessions, csBody+"&expand[]=line_items")
+	box.Do("POST", "/_sandbox/checkout/"+id(paidCS)+"/pay", map[string]any{"payment_method": "pm_card_visa"})
+	c.call("GET", sessions+"/{session}", sessions+"/"+id(paidCS)+"?expand[]=payment_intent&expand[]=line_items", "")
+	c.call("GET", sessions+"/{session}/line_items", sessions+"/"+id(paidCS)+"/line_items", "")
+	expiredCS := c.call("POST", sessions, sessions, csBody)
+	box.Do("POST", "/_sandbox/checkout/"+id(expiredCS)+"/pay", map[string]any{"payment_method": "pm_card_visa_chargeDeclined"})
+	c.call("POST", sessions+"/{session}/expire", sessions+"/"+id(expiredCS)+"/expire", "")
+	c.call("GET", sessions, sessions+"?limit=5", "")
+	c.call("POST", sessions+"/{session}/expire", sessions+"/"+id(expiredCS)+"/expire", "")
+
 	// Lists.
 	c.call("GET", intents, intents+"?limit=3", "")
 	c.call("GET", "/v1/events", "/v1/events?limit=2&type=charge.*", "")
@@ -166,6 +182,7 @@ func TestContract(t *testing.T) {
 		"payment_intent.canceled", "payment_intent.amount_capturable_updated",
 		"charge.succeeded", "charge.failed", "charge.captured", "charge.refunded",
 		"refund.created", "charge.dispute.created", "charge.dispute.closed",
+		"checkout.session.completed", "checkout.session.expired",
 	} {
 		if !seen[typ] {
 			t.Errorf("the run produced no %s event, so its shape is unchecked", typ)

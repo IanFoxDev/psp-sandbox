@@ -22,6 +22,14 @@ such changes are marked **BREAKING**.
   authentication gives `payment_intent_authentication_failure`. Coming back from the page
   adds `payment_intent`, `payment_intent_client_secret` and `redirect_status` to
   `return_url`, as Stripe does.
+- Checkout Sessions in the stripe profile, `mode=payment`: create (line items with
+  `price_data`), retrieve, list, expire, line items. The customer pays on the sandbox's
+  hosted page `/_sandbox/ui/checkout/{id}` (test cards, 3DS, back to `success_url` with
+  `{CHECKOUT_SESSION_ID}` filled in) or a test calls `POST /_sandbox/checkout/{id}/pay`.
+  `checkout.session.completed` follows the PaymentIntent's events and gets the same
+  delivery scenario; at `expires_at` on the sandbox clock or on `/expire` the session
+  sends `checkout.session.expired` and cancels an unpaid PaymentIntent with
+  `cancellation_reason: expired`.
 - `PSP_PUBLIC_URL`: where a browser reaches the sandbox, for links to its pages.
 - PHP client: `authenticate()`, `Scenario::ThreeDSecure`, `PaymentStatus::RequiresAction`,
   `Payment::$actionUrl`, `returnUrl` on `createPayment()`.

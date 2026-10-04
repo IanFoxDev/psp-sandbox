@@ -41,7 +41,9 @@ type Options struct {
 	// ManualClock is PSP_CLOCK=manual: confirm answers without waiting for
 	// the outcome, since it only comes when the test moves time.
 	ManualClock bool
-	Log         *slog.Logger
+	// PublicURL is where a browser reaches the sandbox, for Checkout URLs.
+	PublicURL string
+	Log       *slog.Logger
 }
 
 // API serves the Stripe routes under /v1.
@@ -69,6 +71,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	a.registerIntents(mux)
 	a.registerRefunds(mux)
 	a.registerEvents(mux)
+	a.registerCheckout(mux)
 	mux.Handle("/v1/", a.chain(http.HandlerFunc(a.unrecognized)))
 }
 

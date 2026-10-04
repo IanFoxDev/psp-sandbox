@@ -61,6 +61,15 @@ func stripeEvents(ev payment.Event) []object {
 		parts = []eventPart{{"charge.dispute.created", renderDispute(p)}}
 	case payment.EventChargebackClosed:
 		parts = []eventPart{{"charge.dispute.closed", renderDispute(p)}}
+	case payment.EventCheckoutCompleted, payment.EventCheckoutExpired:
+		cs, _ := ev.Data.(payment.Session)
+		typ := "checkout.session.completed"
+		if ev.Type == payment.EventCheckoutExpired {
+			typ = "checkout.session.expired"
+		}
+		// The page URL is null once the session is not open, so it is not needed here.
+		parts = []eventPart{{typ, renderSessionWith(cs, nullable(cs.PaymentID), false, "")}}
+		p.CallbackURL = cs.CallbackURL
 	}
 	pending := 0
 	if p.CallbackURL != "" {

@@ -106,7 +106,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		DefaultScenario: defaultSpec,
 	}
 	if stripeProfile {
-		engCfg.PaymentPrefix, engCfg.RefundPrefix = "pi", "re"
+		engCfg.PaymentPrefix, engCfg.RefundPrefix, engCfg.SessionPrefix = "pi", "re", "cs_test"
 	}
 	eng, err := engine.New(engCfg, engine.Deps{Clock: clk, Store: st, Dispatcher: dispatcher, Catalog: catalog, IDs: gen, Log: log})
 	if err != nil {
@@ -133,10 +133,12 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(version + "\n"))
 	})
+	var stripeAPI *stripe.API
 	if stripeProfile {
-		stripe.New(eng, st, stripe.Options{
-			APIKey: cfg.APIKey, Seed: cfg.Seed, ManualClock: cfg.ManualClock, Log: log,
-		}).Register(mux)
+		stripeAPI = stripe.New(eng, st, stripe.Options{
+			APIKey: cfg.APIKey, Seed: cfg.Seed, ManualClock: cfg.ManualClock, PublicURL: cfg.PublicURL, Log: log,
+		})
+		stripeAPI.Register(mux)
 	} else {
 		api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
 	}
@@ -144,6 +146,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	pages := ui.New(eng, dispatcher, clk, log)
 	if stripeProfile {
 		pages.SetReturnParams(stripe.ReturnParams)
+		pages.SetCheckoutPayer(stripeAPI)
 	}
 	pages.Register(mux)
 
