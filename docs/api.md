@@ -107,9 +107,10 @@ capture, or `failed` with the scenario's `outcome=declined`. After failure it is
 nothing happens: no timeout cancels the payment, so a test can check what your app does
 with a payment that hangs in `requires_action`. It can be canceled.
 
-`action_url` is built from `PSP_PUBLIC_URL`, by default `http://localhost:<port>`. Set
-it when the browser reaches the sandbox by another name, such as `http://psp:8090` for a
-headless browser in the same compose network.
+`action_url` is built from `PSP_PUBLIC_URL`, by default `http://localhost:<port>` with
+the port the sandbox listens on inside its container. Set it when the browser reaches
+the sandbox by another name or port: `http://localhost:18090` for `ports: ["18090:8090"]`,
+`http://psp:8090` for a headless browser in the same compose network.
 
 Unknown fields in the body are rejected with `400`, which catches typos early.
 

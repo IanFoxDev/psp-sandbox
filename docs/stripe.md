@@ -156,7 +156,7 @@ After success the PaymentIntent goes on as after any confirm: `succeeded` (or
 Your code can confirm it again with another card.
 
 The link in `url` uses `PSP_PUBLIC_URL`, by default `http://localhost:<port>`. Set it
-when the browser reaches the sandbox under another name, for example
+when the browser reaches the sandbox under another name or port, for example
 `http://psp:8090` for a browser in the same compose network.
 
 A PaymentIntent left in `requires_action` stays there, as on Stripe: Stripe does not
