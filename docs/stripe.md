@@ -16,7 +16,7 @@ Why a profile per container and what is left out: [ADR 0005](adr/0005-stripe-com
 ```yaml
 services:
   stripe:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.3
+    image: ghcr.io/ianfoxdev/psp-sandbox:0.4
     ports: ["8090:8090"]
     environment:
       PSP_PROFILE: stripe
@@ -89,6 +89,8 @@ In order, the first one that applies wins:
    | `pm_card_chargeDeclinedIncorrectCvc` | `402`, `incorrect_cvc` |
    | `pm_card_chargeDeclinedProcessingError` | `402`, `processing_error` |
    | `pm_card_createDispute` | success, then a dispute after 1 second on the sandbox clock |
+   | `pm_card_threeDSecure2Required`, `pm_card_authenticationRequired` | `requires_action`, then success after 3DS (see [3D Secure](#3d-secure)) |
+   | `pm_card_threeDSecureRequiredChargeDeclined` | `requires_action`, then `402 card_declined` after 3DS |
 
    Any other `pm_` id gets `404 resource_missing`, as on Stripe.
 4. The rules file. `reference` and `reference_prefix` match `metadata[reference]`.
@@ -97,7 +99,8 @@ In order, the first one that applies wins:
 A bad scenario in metadata is rejected with `400` on the call that sets it, not later
 at confirm.
 
-The scenario is picked when the PaymentIntent is confirmed. A declined PaymentIntent can
+The scenario is picked when the PaymentIntent is confirmed (for Checkout, when the
+customer pays). A declined PaymentIntent can
 be confirmed again with another payment method; that attempt picks its scenario anew
 and gets its own charge.
 
@@ -112,14 +115,112 @@ With `PSP_CLOCK=manual` and a non-zero processing delay, nothing settles until t
 moves the clock, so `confirm` answers right away with `processing` and refunds with
 `pending`. Read the outcome with a `GET` after `POST /_sandbox/clock/advance`.
 
-The browser part of a Stripe checkout (Stripe.js, Payment Element) has no counterpart.
-A test confirms the PaymentIntent from the server with a test card, which is what the
-browser would have done.
+Stripe.js and the Payment Element have no counterpart. A test confirms the
+PaymentIntent from the server with a test card, which is what the browser would have
+done. Stripe's hosted pages do: the 3DS challenge and Checkout, below.
+
+## 3D Secure
+
+A 3DS test card (or `metadata[sandbox_scenario]=three_d_secure`) stops the confirm at
+`requires_action`:
+
+```json
+{
+  "id": "pi_Q50EM1E3VMCE",
+  "status": "requires_action",
+  "next_action": {
+    "type": "redirect_to_url",
+    "redirect_to_url": {
+      "url": "http://localhost:8090/_sandbox/ui/3ds/pi_Q50EM1E3VMCE",
+      "return_url": "https://shop.test/orders/42/return"
+    }
+  }
+}
+```
+
+The confirm answers `200`, not an error, and sends `payment_intent.requires_action`.
+Nothing else happens until the customer answers. Two ways to do that:
+
+- In a browser: open `next_action.redirect_to_url.url`, press Complete or Fail. With a
+  `return_url` (on create or confirm) the page sends the customer back to it with
+  `payment_intent`, `payment_intent_client_secret` and `redirect_status` added, as Stripe
+  does. Good for Playwright, Dusk or Panther tests of the return page.
+- From a test: `POST /_sandbox/payments/{id}/authenticate` with
+  `{"result": "success"}` or `{"result": "failure"}`.
+
+After success the PaymentIntent goes on as after any confirm: `succeeded` (or
+`requires_capture` with manual capture), or declined for
+`pm_card_threeDSecureRequiredChargeDeclined`. After failure it is back in
+`requires_payment_method` with `last_payment_error.code`
+`payment_intent_authentication_failure` and a `payment_intent.payment_failed` event.
+Your code can confirm it again with another card.
+
+The link in `url` uses `PSP_PUBLIC_URL`, by default `http://localhost:<port>`. Set it
+when the browser reaches the sandbox under another name, for example
+`http://psp:8090` for a browser in the same compose network.
+
+A PaymentIntent left in `requires_action` stays there, as on Stripe: Stripe does not
+cancel it by itself. Inside a Checkout Session it is canceled when the session expires.
+
+## Checkout
+
+Checkout Sessions in `mode=payment`, cards only. The shop creates a session and sends
+the customer to its `url`, which is a page of the sandbox in place of Stripe's hosted
+page:
+
+```php
+$session = $stripe->checkout->sessions->create([
+    'mode' => 'payment',
+    'line_items' => [[
+        'price_data' => ['currency' => 'eur', 'unit_amount' => 1000, 'product_data' => ['name' => 'T-shirt']],
+        'quantity' => 1,
+    ]],
+    'client_reference_id' => '42',
+    'success_url' => 'https://shop.test/checkout/success?session_id={CHECKOUT_SESSION_ID}',
+    'cancel_url' => 'https://shop.test/cart',
+]);
+// redirect to $session->url
+```
+
+The customer pays in one of two ways:
+
+- In a browser: the page at `url` lists the line items and the test cards (plain, a
+  decline, 3DS, 3DS then declined, a dispute). A declined card leaves the session open
+  for another try, a 3DS card goes through the 3DS page first. When paid, the page
+  sends the customer to `success_url` with `{CHECKOUT_SESSION_ID}` filled in. The
+  cancel link goes to `cancel_url`.
+- From a test: `POST /_sandbox/checkout/{id}/pay` with
+  `{"payment_method": "pm_card_visa"}`. The answer is the session with `payment_intent`
+  expanded. The PHP client has `payCheckout($sessionId)`, which returns the
+  PaymentIntent id for `waitForDeliveries()`.
+
+Paying creates the session's PaymentIntent and confirms it with the card. The session
+becomes `complete` with `payment_status=paid` once the PaymentIntent has succeeded, and
+`checkout.session.completed` follows the PaymentIntent's events. It gets the same
+delivery scenario: with `duplicate_callback; times=3` the shop receives
+`checkout.session.completed` three times, which is how a shop that fulfills orders
+twice gets caught.
+
+The scenario comes, in order, from `X-Sandbox-Scenario` on the control call,
+`metadata[sandbox_scenario]` of the session or of `payment_intent_data[metadata]`, the
+card, the rules file and `PSP_DEFAULT_SCENARIO`. `payment_intent_data[metadata]` goes to
+the PaymentIntent, so `sandbox_callback_url` and `reference` work there as on a
+PaymentIntent; `client_reference_id` is the reference when `reference` is not set.
+
+A session expires at `expires_at` (24 hours by default, 30 minutes to 24 hours) on the
+sandbox clock, or on `POST /v1/checkout/sessions/{id}/expire`. It sends
+`checkout.session.expired` and cancels a PaymentIntent that has not succeeded, with
+`cancellation_reason: expired`. With `PSP_CLOCK=manual` a test moves the clock past
+`expires_at` to check what the shop does with an abandoned cart.
+
+Two bugs the [Laravel example](../examples/laravel) shows with this: fulfilling the
+order on the success page, so a customer who pays and closes the tab never gets it, and
+fulfilling it again on every copy of `checkout.session.completed`.
 
 ## Webhooks
 
 Webhooks go to `PSP_CALLBACK_URL`, or to `metadata[sandbox_callback_url]` of the
-PaymentIntent (handy when one sandbox serves several apps).
+PaymentIntent or the Checkout Session (handy when one sandbox serves several apps).
 
 They carry `Stripe-Signature: t=<unix>,v1=<hex>`, verified by the SDKs' own
 `constructEvent`. `t` is the real time even with a manual clock, because the SDKs
@@ -130,6 +231,7 @@ One change of a payment may send several events:
 | What happened | Events, in this order |
 |---|---|
 | PaymentIntent created | `payment_intent.created` |
+| 3DS required | `payment_intent.requires_action` |
 | authorized (`capture_method=manual`) | `charge.succeeded`, `payment_intent.amount_capturable_updated` |
 | captured | `charge.succeeded` (or `charge.captured` after manual capture), `payment_intent.succeeded` |
 | declined | `charge.failed`, `payment_intent.payment_failed` |
@@ -138,6 +240,8 @@ One change of a payment may send several events:
 | refund failed | `refund.updated`, `refund.failed` |
 | dispute opened | `charge.dispute.created` |
 | dispute closed | `charge.dispute.closed`, status `won` or `lost` |
+| Checkout Session paid | the PaymentIntent's events, then `checkout.session.completed` |
+| Checkout Session expired | `checkout.session.expired`, then `payment_intent.canceled` if it had an unpaid PaymentIntent |
 
 The scenario's delivery applies to each of them: `duplicate_callback; times=3` sends
 `charge.succeeded` three times and `payment_intent.succeeded` three times;
@@ -155,10 +259,10 @@ The control API and the web UI work as in the native profile, with Stripe ids.
 
 | Endpoint | Parameters the sandbox reads |
 |---|---|
-| `POST /v1/payment_intents` | `amount`, `currency`, `capture_method`, `confirm`, `payment_method`, `description`, `metadata`, `expand[]` |
+| `POST /v1/payment_intents` | `amount`, `currency`, `capture_method`, `confirm`, `payment_method`, `return_url`, `description`, `metadata`, `expand[]` |
 | `GET /v1/payment_intents/{id}` | `expand[]` |
 | `POST /v1/payment_intents/{id}` | `amount` and `payment_method` before a successful confirm, `description`, `metadata` |
-| `POST /v1/payment_intents/{id}/confirm` | `payment_method`, `expand[]` |
+| `POST /v1/payment_intents/{id}/confirm` | `payment_method`, `return_url`, `expand[]` |
 | `POST /v1/payment_intents/{id}/capture` | `amount_to_capture`, `expand[]` |
 | `POST /v1/payment_intents/{id}/cancel` | `cancellation_reason`, `expand[]` |
 | `GET /v1/payment_intents` | `limit`, `starting_after`, `expand[]` |
@@ -167,8 +271,14 @@ The control API and the web UI work as in the native profile, with Stripe ids.
 | `GET /v1/refunds/{id}` | |
 | `GET /v1/events` | `limit`, `starting_after`, `type` (with `*`), `types[]` |
 | `GET /v1/events/{id}` | |
+| `POST /v1/checkout/sessions` | `mode=payment`, `line_items[][price_data]` (`currency`, `unit_amount`, `product_data[name]`), `line_items[][quantity]`, `success_url`, `cancel_url`, `client_reference_id`, `customer_email`, `expires_at`, `metadata`, `payment_intent_data[metadata]`, `expand[]` |
+| `GET /v1/checkout/sessions/{id}` | `expand[]` |
+| `GET /v1/checkout/sessions` | `payment_intent`, `limit`, `starting_after`, `expand[]` |
+| `POST /v1/checkout/sessions/{id}/expire` | |
+| `GET /v1/checkout/sessions/{id}/line_items` | `limit`, `starting_after` |
 
-`expand[]` knows `latest_charge`. Errors, `Idempotency-Key` (replay with
+`expand[]` knows `latest_charge` on PaymentIntents, `payment_intent` and `line_items`
+on sessions. Errors, `Idempotency-Key` (replay with
 `Idempotent-Replayed: true`, `400 idempotency_error` on other parameters, `409` while the
 first request runs) and `Request-Id` behave as on Stripe. Any other path gets `404`.
 
@@ -180,8 +290,15 @@ Things a test may run into, as far as they are known:
   `customer` and so on) are accepted and ignored, with one warning per name in the log.
   Stripe would act on them or reject them.
 - One API version. `Stripe-Version` is read and ignored.
-- Cards only, no `requires_action` or 3DS, no Checkout Sessions, Customers,
-  PaymentMethod objects, SetupIntents, subscriptions, invoices or Connect.
+- Cards only. No Customers, PaymentMethod objects, Products and Prices, SetupIntents,
+  subscriptions, invoices or Connect.
+- 3DS is always a redirect (`redirect_to_url`), never `use_stripe_sdk`, because
+  Stripe.js cannot be pointed at the sandbox. Code that only handles `use_stripe_sdk`
+  in the browser needs a test of its own against Stripe.
+- Checkout Sessions: `mode=payment` with `price_data` only (a `price` id gets `400`),
+  automatic capture only, no `ui_mode=embedded`, no promotion codes, tax, shipping or
+  customer creation. `amount_total` is the sum of the line items.
+  `async_payment_*` events never come, since all payment methods are cards.
 - No minimum amounts and no per-currency rules beyond a three-letter code.
 - Charge ids come from the PaymentIntent: `ch_<same suffix>` for the first attempt,
   `ch_<suffix>_2` for the second.
