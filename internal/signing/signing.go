@@ -71,3 +71,10 @@ func (s *Signer) Sign(h http.Header, id string, at time.Time, body []byte) {
 	h.Set(HeaderTimestamp, strconv.FormatInt(ts, 10))
 	h.Set(HeaderSignature, s.Signature(id, ts, body))
 }
+
+// Wrong returns a signer with another key, for callbacks that must fail
+// verification.
+func (s *Signer) Wrong() *Signer {
+	key := append([]byte("wrong:"), s.key...)
+	return &Signer{secret: Prefix + base64.StdEncoding.EncodeToString(key), key: key}
+}

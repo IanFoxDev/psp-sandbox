@@ -57,19 +57,20 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 		callback.Signer
 		Secret() string
 	}
+	var wrongSigner callback.Signer
 	var encode func(payment.Event) ([]callback.Message, error)
 	if stripeProfile {
 		s, err := signing.NewStripe(secret)
 		if err != nil {
 			return nil, fmt.Errorf("PSP_WEBHOOK_SECRET: %w", err)
 		}
-		signer, encode = s, stripe.Webhooks
+		signer, wrongSigner, encode = s, s.Wrong(), stripe.Webhooks
 	} else {
 		s, err := signing.New(secret)
 		if err != nil {
 			return nil, fmt.Errorf("PSP_WEBHOOK_SECRET: %w", err)
 		}
-		signer = s
+		signer, wrongSigner = s, s.Wrong()
 	}
 
 	defaultSpec, err := scenario.ParseHeader(cfg.DefaultScenario)
@@ -89,14 +90,15 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	gen := ids.New(cfg.Seed)
 	st := store.New()
 	dispatcher := callback.New(callback.Options{
-		Clock:     clk,
-		Signer:    signer,
-		Encode:    encode,
-		IDs:       gen,
-		Retry:     cfg.RetrySchedule,
-		Rand:      ids.Rand(cfg.Seed, "jitter"),
-		Log:       log,
-		UserAgent: "psp-sandbox/" + version,
+		Clock:       clk,
+		Signer:      signer,
+		WrongSigner: wrongSigner,
+		Encode:      encode,
+		IDs:         gen,
+		Retry:       cfg.RetrySchedule,
+		Rand:        ids.Rand(cfg.Seed, "jitter"),
+		Log:         log,
+		UserAgent:   "psp-sandbox/" + version,
 	})
 	engCfg := engine.Config{
 		PublicURL:       cfg.PublicURL,

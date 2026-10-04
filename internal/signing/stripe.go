@@ -47,3 +47,9 @@ func (s *StripeSigner) Sign(h http.Header, _ string, at time.Time, body []byte) 
 	t := at.Unix()
 	h.Set(HeaderStripeSignature, "t="+strconv.FormatInt(t, 10)+",v1="+s.Signature(t, body))
 }
+
+// Wrong returns a signer with another secret, for webhooks that must fail
+// verification.
+func (s *StripeSigner) Wrong() *StripeSigner {
+	return &StripeSigner{secret: s.secret + "_wrong"}
+}

@@ -26,6 +26,9 @@ var ErrNotFound = errors.New("delivery not found")
 const (
 	// Timeout is how long a receiver has to answer one attempt.
 	Timeout = 10 * time.Second
+	// StaleSignature is how old the timestamp of a "stale_timestamp" signature
+	// is: twice the five minutes receivers usually accept.
+	StaleSignature = 10 * time.Minute
 	// maxResponseBody is how much of the receiver's answer is kept in the log.
 	maxResponseBody = 4 << 10
 	// jitter is the largest random addition to a retry delay, as a fraction.
@@ -49,6 +52,9 @@ type Message struct {
 type Options struct {
 	Clock  clock.Clock
 	Signer Signer
+	// WrongSigner signs with another secret, for Plan.Signature
+	// "wrong_secret". Without it such attempts go out unsigned.
+	WrongSigner Signer
 	// Encode turns an event into the messages sent for it, in order. Nil
 	// sends the event itself as JSON.
 	Encode func(payment.Event) ([]Message, error)
@@ -433,7 +439,7 @@ func (d *Dispatcher) deliver(ctx context.Context, del *Delivery, j *job, first b
 			return
 		}
 		started := time.Now()
-		ok := d.attempt(ctx, del, n+1)
+		ok := d.attempt(ctx, del, n+1, j.plan)
 		due = due.Add(time.Since(started))
 		if first {
 			j.firstDone()
@@ -449,7 +455,7 @@ func (d *Dispatcher) deliver(ctx context.Context, del *Delivery, j *job, first b
 	d.setStatus(del, StatusFailed)
 }
 
-func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
+func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int, plan Plan) bool {
 	a := Attempt{N: n, At: d.opts.Clock.Now()}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, del.URL, bytes.NewReader(del.Body))
@@ -462,7 +468,17 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
 	req.Header.Set("User-Agent", d.opts.UserAgent)
 	// The signature timestamp is wall-clock time even with a manual clock:
 	// receivers compare it with their own clock.
-	d.opts.Signer.Sign(req.Header, del.EventID, time.Now(), del.Body)
+	switch plan.Signature {
+	case "missing":
+	case "stale_timestamp":
+		d.opts.Signer.Sign(req.Header, del.EventID, time.Now().Add(-StaleSignature), del.Body)
+	case "wrong_secret":
+		if d.opts.WrongSigner != nil {
+			d.opts.WrongSigner.Sign(req.Header, del.EventID, time.Now(), del.Body)
+		}
+	default:
+		d.opts.Signer.Sign(req.Header, del.EventID, time.Now(), del.Body)
+	}
 
 	a.RequestHeaders = make(map[string]string, len(req.Header))
 	for k := range req.Header {
@@ -487,6 +503,9 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery, n int) bool {
 	ok := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !ok {
 		a.Error = fmt.Sprintf("receiver answered %d", resp.StatusCode)
+	} else if n <= plan.IgnoreAcks {
+		ok = false
+		a.Error = fmt.Sprintf("receiver answered %d, ignored by the scenario (ack_ignored)", resp.StatusCode)
 	}
 	d.record(del, a)
 	level, msg := slog.LevelInfo, "callback sent"

@@ -23,6 +23,12 @@ type Plan struct {
 	// within Batch of the first held one, then queues them all in reverse order.
 	// The first held event's Batch sets the window.
 	Batch time.Duration
+	// Signature spoils the signature of every attempt: "" keeps it valid,
+	// "wrong_secret", "stale_timestamp" or "missing" break it that way.
+	Signature string
+	// IgnoreAcks treats the first IgnoreAcks 2xx answers of each copy as
+	// failures, so the event comes again although the app accepted it.
+	IgnoreAcks int
 }
 
 // Status of a delivery.
