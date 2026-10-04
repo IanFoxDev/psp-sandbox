@@ -43,6 +43,7 @@ Body:
   "reference": "order-42",
   "capture": "auto",
   "callback_url": "http://app/api/psp/callback",
+  "return_url": "https://shop.test/orders/42",
   "metadata": { "customer_id": "c_1" }
 }
 ```
@@ -50,6 +51,8 @@ Body:
 - `capture`: `auto` (default) or `manual`. Manual leaves the payment `authorized` until
   a capture call.
 - `callback_url`: overrides `PSP_CALLBACK_URL` for this payment.
+- `return_url`: where the 3DS page sends the customer after they answer, see
+  [3D Secure](#3d-secure).
 - `reference`: your id. Not required to be unique; the sandbox does not deduplicate on it.
 
 Response `201`:
@@ -77,6 +80,36 @@ Response `201`:
 
 The payment moves to its next status asynchronously and a callback is sent, unless the
 scenario says otherwise.
+
+### 3D Secure
+
+With the `three_d_secure` scenario the payment moves from `pending` to
+`requires_action` instead, sends `payment.action_required` and gets an `action_url`:
+
+```json
+{
+  "id": "pay_K45F8ZCWA0A6",
+  "status": "requires_action",
+  "action_url": "http://localhost:8090/_sandbox/ui/3ds/pay_K45F8ZCWA0A6",
+  "...": "..."
+}
+```
+
+Your app sends the customer to `action_url`, as it would to a bank's challenge page.
+The page has two buttons, Complete and Fail, and then redirects to the payment's
+`return_url` (`303`, no parameters added). A test without a browser calls
+`POST /_sandbox/payments/{id}/authenticate` with `{"result": "success"}` or
+`{"result": "failure"}` instead.
+
+After success the payment goes on as usual: `captured`, or `authorized` with manual
+capture, or `failed` with the scenario's `outcome=declined`. After failure it is
+`failed` with `failure_reason: authentication_failed`. Until the customer answers,
+nothing happens: no timeout cancels the payment, so a test can check what your app does
+with a payment that hangs in `requires_action`. It can be canceled.
+
+`action_url` is built from `PSP_PUBLIC_URL`, by default `http://localhost:<port>`. Set
+it when the browser reaches the sandbox by another name, such as `http://psp:8090` for a
+headless browser in the same compose network.
 
 Unknown fields in the body are rejected with `400`, which catches typos early.
 
@@ -110,7 +143,7 @@ Only from `authorized`. Returns the payment.
 
 ### Cancel
 
-`POST /v1/payments/{id}/cancel`. Only from `pending` or `authorized`.
+`POST /v1/payments/{id}/cancel`. Only from `pending`, `requires_action` or `authorized`.
 
 ### Refund
 
@@ -146,7 +179,8 @@ The refund settles after `PSP_PROCESSING_DELAY` and the result arrives as a
 ```
 pending -> captured                      (capture: auto, the default)
 pending -> authorized -> captured        (capture: manual)
-pending -> failed | canceled
+pending -> requires_action -> captured | authorized | failed   (3D Secure)
+pending | requires_action -> failed | canceled
 authorized -> canceled
 captured -> partially_refunded -> refunded
 captured | partially_refunded -> disputed -> chargeback_lost | chargeback_won
@@ -184,6 +218,8 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `GET /_sandbox/payments/{id}/deliveries` | `200` | Every callback delivery and its attempts, see below. |
 | `GET /_sandbox/payments/{id}/events` | `200` | Events of the payment in the order they happened. |
 | `POST /_sandbox/payments/{id}/events` | `201` | Force an event, see below. |
+| `POST /_sandbox/payments/{id}/authenticate` | `200` | Answer 3DS as the customer: `{"result": "success"}` or `"failure"`. `409` unless the payment is `requires_action`. See [3D Secure](#3d-secure). |
+| `POST /_sandbox/checkout/{id}/pay` | `200` | Stripe profile only: pay a Checkout Session, `{"payment_method": "pm_card_visa"}`. See [stripe.md](stripe.md#checkout). |
 | `POST /_sandbox/deliveries/{id}/replay` | `202` | Send the event of a delivery again, as a new delivery. |
 | `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
 | `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`, up to 10 years. Moves a manual clock and answers with its state. |
@@ -308,6 +344,7 @@ under `/_sandbox/ui/` are for the browser; tests should use the JSON endpoints a
 | `PSP_PROFILE` | `native` | Provider API: `native` (this page) or `stripe` ([stripe.md](stripe.md)). |
 | `PSP_ADDR` | `:8090` | Listen address. |
 | `PSP_API_KEY` | empty | If set, required bearer key. |
+| `PSP_PUBLIC_URL` | `http://localhost:<port of PSP_ADDR>` | Where a browser reaches the sandbox. Used in links to its pages: `action_url`, Stripe's `next_action` and Checkout `url`. |
 | `PSP_CALLBACK_URL` | empty | Default callback URL, absolute http or https. A payment's `callback_url` overrides it. |
 | `PSP_WEBHOOK_SECRET` | random at start | Signing secret. Native: base64, `whsec_` prefix optional. Stripe: any non-empty string. Printed to the log if random. |
 | `PSP_SCENARIOS_FILE` | empty | Path to a rules file, see [scenarios.md](scenarios.md). |

@@ -15,7 +15,8 @@ retries below are the same.
 }
 ```
 
-Event types: `payment.authorized`, `payment.captured`, `payment.failed`,
+Event types: `payment.action_required` (3DS, see
+[api.md](api.md#3d-secure)), `payment.authorized`, `payment.captured`, `payment.failed`,
 `payment.canceled`, `refund.succeeded`, `refund.failed`, `chargeback.opened`,
 `chargeback.closed`.
 
