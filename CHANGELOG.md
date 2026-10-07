@@ -7,6 +7,12 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- `docs/stability.md`: what stays compatible from 1.0 on, what may change in a minor
+  release, how deprecation works and which versions get fixes. `SECURITY.md` has the
+  same support table.
+
 ## [0.4.0] - 2026-10-04
 
 3D Secure in both profiles, Stripe Checkout in the stripe profile, and the rest of the
