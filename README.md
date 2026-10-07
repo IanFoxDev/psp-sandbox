@@ -19,7 +19,8 @@ callbacks to your app, and lets each test pick a failure scenario by name. With
 gets the same failures without an adapter.
 
 > Status: v0.4. Until 1.0, a minor version may change the API; such changes are marked
-> **BREAKING** in the [CHANGELOG](CHANGELOG.md).
+> **BREAKING** in the [CHANGELOG](CHANGELOG.md). What 1.0 will promise:
+> [docs/stability.md](docs/stability.md).
 
 ## Quick start
 
@@ -230,6 +231,7 @@ can run in parallel). See [docs/api.md](docs/api.md#control-api).
 - [Scenarios](docs/scenarios.md)
 - [Callbacks and signing](docs/callbacks.md)
 - [Architecture](docs/architecture.md)
+- [Stability and supported versions](docs/stability.md)
 - [Decision records](docs/adr)
 
 ## Contributing
