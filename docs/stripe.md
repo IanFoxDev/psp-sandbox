@@ -320,7 +320,9 @@ you rely on retries in production. Each is reported upstream with a reproduction
 [stripe-php#2174](https://github.com/stripe/stripe-php/issues/2174).
 
 - **stripe-go does not retry 5xx answers**, only network errors and timeouts.
-  `server_error_then_success` reaches your code as an error even with retries on.
+  `server_error_then_success` reaches your code as an error even with retries on. Fixed
+  upstream in [stripe-go#2468](https://github.com/stripe/stripe-go/pull/2468), not in a
+  stable release yet (v87.0.0 still has it).
 - **stripe-php sends `Idempotency-Key` only when retries are on globally.**
   `max_network_retries` on `StripeClient` alone retries POSTs without a key, so a retry
   after a timeout creates a second payment. Call `\Stripe\Stripe::setMaxNetworkRetries()`

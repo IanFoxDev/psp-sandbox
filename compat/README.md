@@ -32,7 +32,10 @@ first.
 - **stripe-go does not retry 5xx answers.** An error answer becomes `*stripe.Error`,
   whose `canRetry` allows only 429 `lock_timeout`, so `Stripe-Should-Retry` and the
   status are never looked at. It does retry network errors and timeouts.
-  Reported as [stripe-go#2466](https://github.com/stripe/stripe-go/issues/2466).
+  Reported as [stripe-go#2466](https://github.com/stripe/stripe-go/issues/2466), fixed in
+  [stripe-go#2468](https://github.com/stripe/stripe-go/pull/2468) after v87.0.0. When a
+  release with the fix is pinned here, the check that expects no retry fails, and this
+  note goes.
 - **stripe-php sends `Idempotency-Key` only with the global retry setting.**
   `max_network_retries` on `StripeClient` retries POSTs without a key; only
   `\Stripe\Stripe::setMaxNetworkRetries()` adds one. After a timeout, each retry
