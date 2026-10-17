@@ -7,11 +7,41 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-17
+
+The same server and client as 0.4.0, now with a stability promise. Nothing broke in the
+two weeks since 0.4.0, and nothing needs to change in a project that runs 0.4: switch
+the image to `ghcr.io/ianfoxdev/psp-sandbox:1` and the client to `^1.0`.
+
+From 1.0 on, a test suite that passes on `1.x` keeps passing on every later `1.y` with
+the same configuration. Within the major version these do not break:
+
+- the native API under `/v1` and the control API under `/_sandbox/*`;
+- scenario names, their parameters and the rules file format, and the events each
+  scenario sends;
+- every `PSP_*` variable and its default, timing defaults included;
+- callback event types, bodies and signatures in both profiles;
+- the endpoints, parameters and test cards listed for the stripe profile;
+- the public API of the PHP client `ianfoxdev/psp-sandbox-php`;
+- the image tags `:1` and `:1.0`, port `8090` and the healthcheck.
+
+Not covered: the HTML of the sandbox's pages, log format, error texts, differences from
+real Stripe (fixed in minor releases), `compat/` and the examples. The full list, the
+deprecation rules and the support policy are in [docs/stability.md](docs/stability.md)
+and [SECURITY.md](SECURITY.md). Versions `0.x` get no more fixes.
+
 ### Added
 
-- `docs/stability.md`: what stays compatible from 1.0 on, what may change in a minor
-  release, how deprecation works and which versions get fixes. `SECURITY.md` has the
-  same support table.
+- `docs/stability.md`: what stays compatible within a major version, what may change in
+  a minor release, how deprecation works and which versions get fixes. `SECURITY.md` has
+  the same support table.
+- The image is also tagged with the major version: `ghcr.io/ianfoxdev/psp-sandbox:1`.
+
+### Changed
+
+- README, docs and the PHP client README point to the `:1` image.
+- `docs/stripe.md` and `compat/README.md`: the stripe-go retry bug (#2466) is fixed
+  upstream in stripe-go#2468, not yet in a stable stripe-go release.
 
 ## [0.4.0] - 2026-10-04
 
@@ -183,7 +213,8 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.1.1...v0.2.0

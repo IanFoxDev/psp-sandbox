@@ -18,9 +18,9 @@ callbacks to your app, and lets each test pick a failure scenario by name. With
 `PSP_PROFILE=stripe` it speaks Stripe's API instead, so code on the official Stripe SDK
 gets the same failures without an adapter.
 
-> Status: v0.4. Until 1.0, a minor version may change the API; such changes are marked
-> **BREAKING** in the [CHANGELOG](CHANGELOG.md). What 1.0 will promise:
-> [docs/stability.md](docs/stability.md).
+> Status: 1.0. A test suite that passes on `1.x` keeps passing on every later `1.y`.
+> What that covers and what it does not: [docs/stability.md](docs/stability.md).
+> Supported versions: [SECURITY.md](SECURITY.md#supported-versions).
 
 ## Quick start
 
@@ -28,7 +28,7 @@ gets the same failures without an adapter.
 # compose.yaml in your project
 services:
   psp:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.4
+    image: ghcr.io/ianfoxdev/psp-sandbox:1
     ports: ["8090:8090"]
     environment:
       PSP_CALLBACK_URL: http://app/api/psp/callback

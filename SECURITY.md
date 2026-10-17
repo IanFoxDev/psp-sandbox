@@ -16,7 +16,7 @@ ianfoxdeveloper@gmail.com.
 | Last minor of the previous major | Security fixes for 6 months after the new major |
 | Older, and every `0.x` once 1.0 is out | None |
 
-Until 1.0 that means the latest `0.x` release only; the `0.4` image tag always points to
-the newest `0.4.x`. Security fixes ship as patch releases, the GitHub advisory is
-published together with the release, and the image tags (`:1`, `:1.2`) move to the fixed
-build. What the version numbers promise: [docs/stability.md](docs/stability.md).
+The `:1` image tag always points to the newest `1.x.y`, `:1.0` to the newest `1.0.x`.
+Security fixes ship as patch releases, the GitHub advisory is published together with
+the release, and the image tags (`:1`, `:1.0`) move to the fixed build. What the version
+numbers promise: [docs/stability.md](docs/stability.md).

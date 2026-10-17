@@ -16,7 +16,7 @@ Why a profile per container and what is left out: [ADR 0005](adr/0005-stripe-com
 ```yaml
 services:
   stripe:
-    image: ghcr.io/ianfoxdev/psp-sandbox:0.4
+    image: ghcr.io/ianfoxdev/psp-sandbox:1
     ports: ["8090:8090"]
     environment:
       PSP_PROFILE: stripe

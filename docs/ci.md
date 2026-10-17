@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       psp:
-        image: ghcr.io/ianfoxdev/psp-sandbox:0.4
+        image: ghcr.io/ianfoxdev/psp-sandbox:1
         ports: ["8090:8090"]
         env:
           PSP_CALLBACK_URL: http://host.docker.internal:8000/api/psp/callback
@@ -60,7 +60,7 @@ connections. The job reaches the sandbox by its alias:
 test:
   image: php:8.4
   services:
-    - name: ghcr.io/ianfoxdev/psp-sandbox:0.4
+    - name: ghcr.io/ianfoxdev/psp-sandbox:1
       alias: psp
   variables:
     # one network per job, so the sandbox can call back into the job container
