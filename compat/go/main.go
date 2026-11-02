@@ -165,18 +165,15 @@ func main() {
 		}
 		return nil
 	})
-	// stripe-go turns an error answer into *stripe.Error, whose canRetry allows
-	// only 429 lock_timeout, so Stripe-Should-Retry and 5xx are never looked
-	// at. The check pins that; if a new stripe-go retries, docs/stripe.md
-	// needs updating.
-	check("stripe-go does not retry a 503 even with retries on", func() error {
-		_, err := client(base, 2, 30*time.Second).V1PaymentIntents.Create(ctx,
+	// Before v87.1.0 stripe-go never retried a decoded API error, so this got
+	// the 503 back (stripe-go#2466). Now Stripe-Should-Retry is honored.
+	check("stripe-go retries a 503 and gets the payment", func() error {
+		pi, err := client(base, 2, 30*time.Second).V1PaymentIntents.Create(ctx,
 			params("pm_card_visa", "sandbox_scenario", "server_error_then_success", "order", "retry"))
-		var se *stripe.Error
-		if !errors.As(err, &se) || se.HTTPStatusCode != http.StatusServiceUnavailable {
-			return fmt.Errorf("got %v", err)
+		if err == nil && pi.Status != stripe.PaymentIntentStatusSucceeded {
+			err = fmt.Errorf("status %s", pi.Status)
 		}
-		return nil
+		return err
 	})
 	check("retry after a client timeout gets the stored answer", func() error {
 		pi, err := client(base, 2, time.Second).V1PaymentIntents.Create(ctx,
@@ -197,9 +194,9 @@ func main() {
 			}
 			seen[pi.ID] = true
 		}
-		// paid, declined, manual and the one created after the timeout.
-		if len(seen) != 4 {
-			return fmt.Errorf("%d intents, want 4", len(seen))
+		// paid, declined, manual, the retried one and the one after the timeout.
+		if len(seen) != 5 {
+			return fmt.Errorf("%d intents, want 5", len(seen))
 		}
 		return nil
 	})
@@ -212,7 +209,9 @@ func main() {
 		for _, h := range want {
 			for !rc.has(h.typ, h.intent) {
 				if time.Now().After(deadline) {
-					return fmt.Errorf("no %s for %s", h.typ, h.intent)
+					rc.mu.Lock()
+					defer rc.mu.Unlock()
+					return fmt.Errorf("no %s for %s (paid %s, declined %s), got %v", h.typ, h.intent, paid.ID, declined.ID, rc.got)
 				}
 				time.Sleep(50 * time.Millisecond)
 			}
