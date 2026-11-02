@@ -7,6 +7,12 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Changed
+
+- `compat/`: stripe-go v87.1.0, which retries 5xx answers again (stripe-go#2466 fixed
+  in #2468). The check now expects the retry to get the payment. `docs/stripe.md` and
+  `compat/README.md` say which stripe-go versions have the bug.
+
 ## [1.0.0] - 2026-10-17
 
 The same server and client as 0.4.0, now with a stability promise. Nothing broke in the

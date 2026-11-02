@@ -313,22 +313,23 @@ Things a test may run into, as far as they are known:
 
 ## What the SDKs do
 
-The SDK checks in [compat/](../compat/README.md) found three things worth knowing before
+The SDK checks in [compat/](../compat/README.md) found two things worth knowing before
 you rely on retries in production. Each is reported upstream with a reproduction:
-[stripe-go#2466](https://github.com/stripe/stripe-go/issues/2466),
 [stripe-php#2173](https://github.com/stripe/stripe-php/issues/2173),
 [stripe-php#2174](https://github.com/stripe/stripe-php/issues/2174).
 
-- **stripe-go does not retry 5xx answers**, only network errors and timeouts.
-  `server_error_then_success` reaches your code as an error even with retries on. Fixed
-  upstream in [stripe-go#2468](https://github.com/stripe/stripe-go/pull/2468), not in a
-  stable release yet (v87.0.0 still has it).
 - **stripe-php sends `Idempotency-Key` only when retries are on globally.**
   `max_network_retries` on `StripeClient` alone retries POSTs without a key, so a retry
   after a timeout creates a second payment. Call `\Stripe\Stripe::setMaxNetworkRetries()`
   too, or pass `idempotency_key` yourself. `timeout_then_success` shows the difference.
 - **stripe-php pages through lists on the global base URL**, not the client's. Set
   `\Stripe\Stripe::$apiBase` as well, as above.
+
+stripe-go before v87.1.0 did not retry 5xx answers at all, only network errors and
+timeouts: `server_error_then_success` reached your code as an error even with retries
+on ([stripe-go#2466](https://github.com/stripe/stripe-go/issues/2466), fixed in
+[stripe-go#2468](https://github.com/stripe/stripe-go/pull/2468)). On an older stripe-go,
+upgrade or retry 5xx yourself.
 
 ## Parallel tests
 

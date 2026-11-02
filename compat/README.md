@@ -1,8 +1,10 @@
 # SDK compatibility
 
 The stripe profile is checked with the official SDKs, not only with its own tests:
-[php](php/check.php) (stripe-php 22.0.0), [go](go/main.go) (stripe-go v87.0.0) and
-[node](node/check.mjs) (stripe-node 23.0.0), all on API version `2026-09-30.endive`.
+[php](php/check.php) (stripe-php 22.0.0), [go](go/main.go) (stripe-go v87.1.0) and
+[node](node/check.mjs) (stripe-node 23.0.0). The sandbox answers as API version
+`2026-09-30.endive`; stripe-go v87.1.0 is pinned to `2026-10-28.endive`, the same
+release train, so its webhook check accepts the events.
 
 Each one runs the calls a backend makes against a sandbox started with
 `PSP_PROFILE=stripe`, and receives the webhooks on its own endpoint, verified with the
@@ -29,13 +31,6 @@ CI runs the same on every change to the server or to this folder.
 These are pinned by the checks, so a new SDK version that changes them fails here
 first.
 
-- **stripe-go does not retry 5xx answers.** An error answer becomes `*stripe.Error`,
-  whose `canRetry` allows only 429 `lock_timeout`, so `Stripe-Should-Retry` and the
-  status are never looked at. It does retry network errors and timeouts.
-  Reported as [stripe-go#2466](https://github.com/stripe/stripe-go/issues/2466), fixed in
-  [stripe-go#2468](https://github.com/stripe/stripe-go/pull/2468) after v87.0.0. When a
-  release with the fix is pinned here, the check that expects no retry fails, and this
-  note goes.
 - **stripe-php sends `Idempotency-Key` only with the global retry setting.**
   `max_network_retries` on `StripeClient` retries POSTs without a key; only
   `\Stripe\Stripe::setMaxNetworkRetries()` adds one. After a timeout, each retry

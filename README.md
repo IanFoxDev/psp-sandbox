@@ -85,8 +85,8 @@ A test without a browser does the same through the control API.
 
 Setup for each SDK, what is supported and how it differs from Stripe:
 [docs/stripe.md](docs/stripe.md). Running the SDKs against the sandbox also showed that
-stripe-go does not retry `5xx` answers and that stripe-php retries POSTs without an
-idempotency key unless retries are on globally; details there.
+stripe-go before v87.1.0 does not retry `5xx` answers and that stripe-php retries POSTs
+without an idempotency key unless retries are on globally; details there.
 
 ## Scenarios
 
