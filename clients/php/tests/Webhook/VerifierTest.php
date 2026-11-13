@@ -99,8 +99,7 @@ final class VerifierTest extends TestCase
      */
     private function headers(int $timestamp = self::NOW): array
     {
-        $key = base64_decode('dGVzdC1zZWNyZXQ=', true);
-        self::assertIsString($key);
+        $key = 'test-secret'; // base64 part of SECRET, decoded
         $signature = base64_encode(hash_hmac('sha256', 'evt_1.' . $timestamp . '.' . self::BODY, $key, true));
 
         return [
