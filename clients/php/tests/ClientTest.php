@@ -239,6 +239,22 @@ final class ClientTest extends TestCase
         self::assertSame(['reference_prefix' => 'test-42-'], $this->http->lastBody());
     }
 
+    public function testBalanceReport(): void
+    {
+        $csv = "balance_transaction_id,created\ntxn_1,2026-10-01 09:00:00\n";
+        $this->http->queue(200, $csv, ['Content-Type' => 'text/csv'])->queue(200, $csv);
+        $c = $this->client();
+
+        self::assertSame($csv, $c->balanceReport());
+        self::assertSame('http://sandbox:8090/_sandbox/reports/balance.csv', (string) $this->http->last()->getUri());
+
+        $c->balanceReport('test-1-', new \DateTimeImmutable('2026-10-01 00:00:00', new \DateTimeZone('UTC')));
+        self::assertSame(
+            'http://sandbox:8090/_sandbox/reports/balance.csv?reference_prefix=test-1-&from=2026-10-01T00%3A00%3A00%2B00%3A00',
+            (string) $this->http->last()->getUri(),
+        );
+    }
+
     public function testApiError(): void
     {
         $this->http->queue(409, ['error' => ['code' => 'invalid_state', 'message' => 'payment is not authorized']]);

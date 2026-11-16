@@ -179,6 +179,18 @@ final class SandboxTest extends TestCase
         self::assertNotSame($mine->id, $other->id);
     }
 
+    public function testBalanceReport(): void
+    {
+        $c = $this->sandbox();
+        $payment = $c->createPayment(1050, 'EUR', reference: 'report-1', scenario: Scenario::LostCallback);
+        $this->waitForPaymentStatus($payment->id, PaymentStatus::Captured);
+
+        $lines = explode("\n", trim($c->balanceReport('report-')));
+        self::assertCount(2, $lines);
+        self::assertStringStartsWith('balance_transaction_id,created,available_on,currency,gross,fee,net,reporting_category', $lines[0]);
+        self::assertStringEndsWith(",eur,10.50,0.00,10.50,charge,{$payment->id},{$payment->id},{$payment->id}", $lines[1]);
+    }
+
     public function testClock(): void
     {
         $clock = $this->sandbox()->clock();

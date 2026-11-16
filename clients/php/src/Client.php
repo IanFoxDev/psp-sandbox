@@ -307,6 +307,29 @@ final class Client
         $this->send('POST', '/_sandbox/reset', $referencePrefix === null ? null : ['reference_prefix' => $referencePrefix]);
     }
 
+    /**
+     * The provider's itemized Balance report as CSV, in Stripe's format: a row per
+     * capture, settled refund and chargeback, whether its callback arrived or not.
+     * Compare it with your ledger the way finance compares the real export.
+     *
+     * @param ?string             $referencePrefix only payments whose reference starts with it
+     * @param ?\DateTimeInterface $from            rows created at or after this time
+     * @param ?\DateTimeInterface $to              rows created before this time
+     *
+     * @throws ApiError
+     * @throws ClientExceptionInterface
+     */
+    public function balanceReport(?string $referencePrefix = null, ?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null): string
+    {
+        $query = http_build_query(array_filter([
+            'reference_prefix' => $referencePrefix,
+            'from' => $from?->format(\DateTimeInterface::RFC3339),
+            'to' => $to?->format(\DateTimeInterface::RFC3339),
+        ], static fn (?string $v): bool => $v !== null));
+
+        return (string) $this->send('GET', '/_sandbox/reports/balance.csv' . ($query === '' ? '' : '?' . $query))->getBody();
+    }
+
     // Wait helpers: callbacks and status changes are asynchronous.
 
     /**
