@@ -223,6 +223,10 @@ payment, replay a callback, open a chargeback by hand, move the clock forward, r
 state between tests (all of it, or one test's payments by reference prefix, so tests
 can run in parallel). See [docs/api.md](docs/api.md#control-api).
 
+`GET /_sandbox/reports/balance.csv` exports what the provider recorded in the format of
+Stripe's Balance report, lost callbacks included, so a reconciliation job can be tested
+against the sandbox: [Balance report](docs/api.md#balance-report).
+
 ## Documentation
 
 - [API](docs/api.md), and the same as [OpenAPI 3.1](docs/openapi.yaml)

@@ -7,6 +7,14 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /_sandbox/reports/balance.csv`: the provider's Balance report in Stripe's itemized
+  format, one row per capture, settled refund and chargeback, with filters by reference
+  prefix and time. A lost callback still has its row, so reconciliation against the
+  ledger can be tested end to end.
+- PHP client: `Client::balanceReport()`.
+
 ## [1.0.1] - 2026-11-13
 
 A maintenance release. The server and the PHP client behave as in 1.0.0.

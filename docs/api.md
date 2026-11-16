@@ -225,6 +225,7 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `GET /_sandbox/clock` | `200` | `{"now": "...", "manual": true}` |
 | `POST /_sandbox/clock/advance` | `200` | `{"seconds": 3600}`, up to 10 years. Moves a manual clock and answers with its state. |
 | `POST /_sandbox/reset` | `204` | Drop all payments, events, deliveries, pending status changes and idempotency keys. With `{"reference_prefix": "test-42-"}` only the payments whose reference starts with it, see [Parallel tests](#parallel-tests). |
+| `GET /_sandbox/reports/balance.csv` | `200` | The provider's Balance report as CSV, for reconciliation. See [Balance report](#balance-report). |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |
 | `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v1.0.1`. |
@@ -319,6 +320,41 @@ reading them right after the call.
 
 Without a manual clock the call returns `409 clock_not_manual`. Reset does not move the
 clock back.
+
+### Balance report
+
+`GET /_sandbox/reports/balance.csv` is what a finance team downloads from the provider
+to reconcile: Stripe's itemized Balance report (`balance_change_from_activity.itemized`),
+in both profiles. Reconciliation tools that read Stripe's export read this one.
+
+```
+balance_transaction_id,created,available_on,currency,gross,fee,net,reporting_category,source_id,payment_intent_id,charge_id
+txn_7QK2M9XH4B1C,2026-10-01 09:00:00,2026-10-03 00:00:00,eur,10.50,0.00,10.50,charge,pay_01J9Z3K8Q2W5,pay_01J9Z3K8Q2W5,pay_01J9Z3K8Q2W5
+txn_2B6D9QK1M3XH,2026-10-01 09:05:00,2026-10-03 00:00:00,eur,-3.00,0.00,-3.00,refund,ref_01J9Z3P1B6D2,pay_01J9Z3K8Q2W5,pay_01J9Z3K8Q2W5
+```
+
+| `reporting_category` | Row for | `gross` |
+|---|---|---|
+| `charge` | a capture | the captured amount |
+| `refund` | a refund that settled | minus the refund |
+| `dispute` | an opened chargeback | minus what was left after refunds |
+| `dispute_reversal` | a chargeback closed as won | the same amount back |
+
+A row stands for what happened, not for what was delivered: a payment under
+`lost_callback` has its `charge`, a callback sent five times is one row, and the false
+`payment.failed` of `status_regression` has none. That is the point of the report: a
+reconciliation that compares it with your ledger finds the payment your app never heard
+about.
+
+- Amounts are in major units, `10.50`; Stripe's zero-decimal currencies (JPY, KRW and
+  others) in whole units. `currency` is lower case.
+- `fee` is `0.00` and `net` equals `gross`: the sandbox charges no fees.
+- `created` is when the money moved, UTC. `available_on` is two days later, at midnight.
+- Native profile: `source_id`, `payment_intent_id` and `charge_id` hold the payment id,
+  and the refund id for a refund. Stripe profile: the PaymentIntent, its charge
+  (`ch_...`), the refund (`re_...`) and the dispute (`dp_...`), as the API shows them.
+- Filters: `reference_prefix`, and `from` and `to` in RFC 3339 on `created` (`from`
+  inclusive, `to` exclusive). Rows are in the order things happened.
 
 ### Web UI
 

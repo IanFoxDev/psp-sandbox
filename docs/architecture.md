@@ -21,6 +21,7 @@ internal/sandboxtest/   test helpers: a full sandbox plus a signed-callback rece
 internal/api/           native provider API handlers (/v1/*)
 internal/stripe/        Stripe-compatible provider API, its events and webhook bodies
 internal/control/       control API handlers (/_sandbox/*)
+internal/report/        Balance report in Stripe's format, built from recorded events
 internal/httpx/         JSON and error helpers shared by both APIs
 internal/ui/            embedded web UI (html/template and forms, no JavaScript)
 scenarios/              example rules files
