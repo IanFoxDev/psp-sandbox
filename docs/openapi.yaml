@@ -481,6 +481,40 @@ paths:
         '400':
           $ref: '#/components/responses/InvalidRequest'
 
+  /_sandbox/reports/balance.csv:
+    get:
+      tags: [control]
+      operationId: balanceReport
+      security: []
+      summary: Balance report, as the provider would export it
+      description: |
+        Stripe's itemized Balance report (`balance_change_from_activity.itemized`) for
+        the columns the sandbox fills: one row per capture, settled refund, opened
+        chargeback and won chargeback, amounts in major units, fee 0. Built from what
+        happened, not from what was delivered: a lost callback still has its row.
+      parameters:
+        - name: reference_prefix
+          in: query
+          schema: { type: string }
+          description: Only payments whose reference starts with this.
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+          description: Rows created at or after this time.
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+          description: Rows created before this time.
+      responses:
+        '200':
+          description: The report, with a header row.
+          content:
+            text/csv:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+
   /healthz:
     get:
       tags: [service]

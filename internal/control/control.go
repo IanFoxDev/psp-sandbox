@@ -5,7 +5,9 @@
 package control
 
 import (
+	"bytes"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ianfoxdev/psp-sandbox/internal/callback"
@@ -13,6 +15,7 @@ import (
 	"github.com/ianfoxdev/psp-sandbox/internal/engine"
 	"github.com/ianfoxdev/psp-sandbox/internal/httpx"
 	"github.com/ianfoxdev/psp-sandbox/internal/payment"
+	"github.com/ianfoxdev/psp-sandbox/internal/report"
 	"github.com/ianfoxdev/psp-sandbox/internal/scenario"
 )
 
@@ -22,11 +25,17 @@ type Control struct {
 	dispatcher *callback.Dispatcher
 	catalog    *scenario.Catalog
 	clock      clock.Clock
+	naming     report.Naming
 }
 
 // New returns the control API.
 func New(e *engine.Engine, d *callback.Dispatcher, c *scenario.Catalog, clk clock.Clock) *Control {
-	return &Control{engine: e, dispatcher: d, catalog: c, clock: clk}
+	return &Control{engine: e, dispatcher: d, catalog: c, clock: clk, naming: report.Native}
+}
+
+// SetReportNaming sets the ids the balance report shows, for the stripe profile.
+func (c *Control) SetReportNaming(n report.Naming) {
+	c.naming = n
 }
 
 // Register adds the /_sandbox routes to mux.
@@ -40,6 +49,45 @@ func (c *Control) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /_sandbox/clock", c.clockNow)
 	mux.HandleFunc("POST /_sandbox/clock/advance", c.advance)
 	mux.HandleFunc("POST /_sandbox/reset", c.reset)
+	mux.HandleFunc("GET /_sandbox/reports/balance.csv", c.balance)
+}
+
+// balance is the provider's itemized Balance report as CSV, in Stripe's
+// format: what reconciliation compares the ledger with. Optional filters:
+// reference_prefix, and from and to (RFC 3339) on the time the money moved,
+// from inclusive and to exclusive.
+func (c *Control) balance(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	var from, to time.Time
+	for name, t := range map[string]*time.Time{"from": &from, "to": &to} {
+		if v := q.Get(name); v != "" {
+			parsed, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+				httpx.WriteError(w, http.StatusBadRequest, "invalid_request", name+" must be an RFC 3339 time, such as 2026-10-01T00:00:00Z")
+				return
+			}
+			*t = parsed
+		}
+	}
+	prefix := q.Get("reference_prefix")
+	rows := report.Balance(c.engine.AllEvents(), c.naming)
+	kept := rows[:0]
+	for _, row := range rows {
+		if !strings.HasPrefix(row.Reference, prefix) ||
+			(!from.IsZero() && row.Created.Before(from)) ||
+			(!to.IsZero() && !row.Created.Before(to)) {
+			continue
+		}
+		kept = append(kept, row)
+	}
+	var buf bytes.Buffer
+	if err := report.WriteCSV(&buf, kept); err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "internal", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="balance.csv"`)
+	_, _ = w.Write(buf.Bytes())
 }
 
 type list struct {

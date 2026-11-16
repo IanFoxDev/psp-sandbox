@@ -144,7 +144,11 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	} else {
 		api.New(eng, st, api.Options{APIKey: cfg.APIKey, Log: log}).Register(mux)
 	}
-	control.New(eng, dispatcher, catalog, clk).Register(mux)
+	ctl := control.New(eng, dispatcher, catalog, clk)
+	if stripeProfile {
+		ctl.SetReportNaming(stripe.ReportNaming)
+	}
+	ctl.Register(mux)
 	pages := ui.New(eng, dispatcher, clk, log)
 	if stripeProfile {
 		pages.SetReturnParams(stripe.ReturnParams)
