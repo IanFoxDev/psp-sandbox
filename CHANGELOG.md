@@ -7,6 +7,10 @@ such changes are marked **BREAKING**.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-17
+
+The sandbox now exports what a provider would send for reconciliation.
+
 ### Added
 
 - `GET /_sandbox/reports/balance.csv`: the provider's Balance report in Stripe's itemized
@@ -232,7 +236,8 @@ First release.
 - Scenarios `happy_path`, `declined`, `duplicate_callback`, `callback_before_response`,
   `timeout_then_success`, `lost_callback`, `delayed_callback`.
 
-[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/IanFoxDev/psp-sandbox/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/IanFoxDev/psp-sandbox/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/IanFoxDev/psp-sandbox/compare/v0.3.0...v0.4.0

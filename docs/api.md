@@ -228,7 +228,7 @@ shape as in the provider API. Lists come as `{"data": [...]}`.
 | `GET /_sandbox/reports/balance.csv` | `200` | The provider's Balance report as CSV, for reconciliation. See [Balance report](#balance-report). |
 | `GET /_sandbox/` | `200` | Web UI, see below. |
 | `GET /healthz` | `200` | Liveness, `ok`. The image runs it as its Docker `HEALTHCHECK`. |
-| `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v1.0.1`. |
+| `GET /version` | `200` | Version of the running sandbox as plain text, e.g. `v1.1.0`. |
 
 ### Parallel tests
 
